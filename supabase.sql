@@ -88,6 +88,8 @@ $$;
 
 -- Appelée par l'appli à la connexion : renvoie le rôle, l'entreprise, et s'il faut changer le mot de passe.
 -- Le super-admin reçoit sa propre entreprise à sa première connexion.
+-- (l'ancienne version renvoyait du texte : on la retire avant de la recréer)
+drop function if exists public.crm_moi();
 create or replace function public.crm_moi() returns json
 language plpgsql security definer set search_path = public as $$
 declare
