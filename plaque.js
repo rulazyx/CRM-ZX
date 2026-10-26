@@ -89,6 +89,7 @@ const Plaque = (() => {
       portes: pick(/portes/i),
       places: pick(/places|passagers|seats/i),
       vin: pick(/_VIN$/i, /^vin$/i),
+      image: pick(/model_image/i, /photo_modele/i),
       description: pick(/selector_modele_label/i, /tecdoc_modele_description/i, /label$/i),
       // Tout ce que renvoie le service, gardé dans la fiche du véhicule.
       ficheTechnique: Object.fromEntries(Object.entries(d)

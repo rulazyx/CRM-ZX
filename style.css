@@ -290,3 +290,8 @@ html { touch-action: manipulation; -webkit-text-size-adjust: 100%; }
   .jour.today .jour-tete { padding: 4px 6px; }
   .jour-evts { align-content: start; }
 }
+
+.vehicule-image { grid-column: 1 / -1; border-radius: var(--radius); overflow: hidden; background: #fff; border: 1px solid var(--line); display: grid; place-items: center; }
+.vehicule-image img { max-width: 100%; max-height: 180px; object-fit: contain; display: block; }
+.thumb { margin: -14px -16px 10px; height: 130px; background: #fff; border-bottom: 1px solid var(--line); border-radius: var(--radius) var(--radius) 0 0; display: grid; place-items: center; overflow: hidden; }
+.thumb img { max-width: 100%; max-height: 120px; object-fit: contain; }

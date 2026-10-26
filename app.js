@@ -10,7 +10,11 @@ const db = {
     try {
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
       if (saved) this.data = Object.assign(this.data, saved);
-      (this.data.planning || []).forEach(r => { if (r.type === 'Rappel client') r.type = 'Relance client'; });
+      (this.data.planning || []).forEach(r => {
+        if (r.type === 'Rappel client') r.type = 'Relance client';
+        if (r.type === 'Livraison') r.type = 'Vente / livraison';
+      });
+      (this.data.commandes || []).forEach(o => { if (o.statut === 'Devis') o.statut = 'Offre'; });
     } catch (e) { /* stockage indisponible : on démarre vide */ }
   },
   // `distant` : données reçues de la synchro, à ne pas renvoyer.
@@ -91,7 +95,7 @@ const STATUTS_REPRISE = {
 let filtreReprise = 'À étudier';
 const interessesPar = v => db.all('clients').filter(c => (c.interets || []).includes(v.id));
 const num = x => Number(x) || 0;
-const TYPES_RDV = { 'Essai': 'b-blue', 'Expertise reprise': 'b-purple', 'Livraison': 'b-green', 'Relance client': 'b-orange', 'Rendez-vous': 'b-blue', 'Autre': 'b-grey' };
+const TYPES_RDV = { 'Essai': 'b-blue', 'Expertise reprise': 'b-purple', 'Vente / livraison': 'b-green', 'Relance client': 'b-orange', 'Rendez-vous': 'b-blue', 'Autre': 'b-grey' };
 const FILTRES_RDV = {
   'Semaine': () => true,
   'À venir': r => !r.fait && r.date >= today(),
@@ -103,7 +107,8 @@ let filtreRdv = 'Semaine';
 // Lundi de la semaine affichée dans le calendrier.
 let semaine = (() => { const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() - (d.getDay() + 6) % 7); return d; })();
 const ajouterJours = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
-const STATUT_COMMANDE = { 'Devis': 'b-blue', 'En cours': 'b-orange', 'Livrée': 'b-green', 'Annulée': 'b-red' };
+// Une vente commence par une offre ; validée, elle devient une commande.
+const STATUT_COMMANDE = { 'Offre': 'b-purple', 'En cours': 'b-orange', 'Livrée': 'b-green', 'Annulée': 'b-red' };
 
 // ---------- Définition des onglets ----------
 const TABS = {
@@ -207,7 +212,8 @@ const TABS = {
       const reprise = REPRISE.includes(v.statut);
       const prix = reprise ? (v.prixPropose ? 'Proposé ' + euros(v.prixPropose) : '') : euros(v.prixVente);
       const marge = !reprise && v.prixVente && v.prixAchat ? num(v.prixVente) - num(v.prixAchat) - num(v.fraisEstimes) : null;
-      return `<div class="top"><span class="title">${esc(vehiculeNom(v))}</span>
+      return `${v.image ? `<div class="thumb"><img src="${esc(v.image)}" alt="" loading="lazy" onerror="this.parentNode.remove()"></div>` : ''}
+        <div class="top"><span class="title">${esc(vehiculeNom(v))}</span>
         <span class="badge ${STATUT_VEHICULE[v.statut] || 'b-grey'}">${esc(v.statut || '')}</span></div>
         <div class="sub">${esc([v.annee, km(v.kilometrage), v.carburant, v.boite, v.type, v.couleur].filter(Boolean).join(' · '))}</div>
         ${!reprise && interessesPar(v).length ? `<div class="sub">★ ${interessesPar(v).length} client(s) intéressé(s)</div>` : ''}
@@ -225,12 +231,12 @@ const TABS = {
   },
 
   commandes: {
-    titre: 'commande', titreNouveau: 'Nouvelle commande',
+    titre: 'commande', titreNouveau: 'Nouvelle offre',
     fields: [
       { k: 'clientId', l: 'Client', type: 'ref', table: 'clients', required: true, full: true },
       { k: 'vehiculeId', l: 'Véhicule', type: 'ref', table: 'vehicules', required: true, full: true },
       { k: 'date', l: 'Date', type: 'date', def: today },
-      { k: 'statut', l: 'Statut', type: 'select', options: Object.keys(STATUT_COMMANDE), def: 'En cours' },
+      { k: 'statut', l: 'Statut', type: 'select', options: Object.keys(STATUT_COMMANDE), def: 'Offre' },
       { k: 'prix', l: 'Prix de vente (€)', type: 'number' },
       { k: 'acompte', l: 'Acompte versé (€)', type: 'number' },
       { k: 'paiement', l: 'Mode de paiement', type: 'select', options: ['', 'Comptant', 'Virement', 'Chèque', 'Financement / crédit', 'Reprise + soulte'] },
@@ -250,12 +256,33 @@ const TABS = {
         <span class="price">${euros(o.prix)}</span></div>`;
     },
     canDelete: () => true,
-    // Le statut du véhicule suit la commande.
-    afterSave: o => {
+    afterSave: (o, avant) => {
+      // Offre émise : relance client planifiée deux jours après.
+      if (o.statut === 'Offre' && !relances(o).length) {
+        const d = new Date(); d.setDate(d.getDate() + 2);
+        db.upsert('planning', { type: 'Relance client', date: isoLocal(d), heure: '', clientId: o.clientId, vehiculeId: o.vehiculeId,
+          commandeId: o.id, notes: `Relance de l'offre ${o.numero}`, fait: false });
+        toast(`Offre ${o.numero} créée · relance planifiée le ${dateFr(isoLocal(d))}`);
+      }
+      // Offre validée ou annulée : la relance n'a plus lieu d'être.
+      if (o.statut !== 'Offre') relances(o).forEach(r => db.upsert('planning', { id: r.id, fait: true }));
+      // Le statut du véhicule suit la commande (une simple offre ne le réserve pas).
       const v = db.get('vehicules', o.vehiculeId);
-      if (!v) return;
-      const statut = o.statut === 'Livrée' ? 'Vendu' : o.statut === 'Annulée' ? 'En stock' : 'Réservé';
-      if (v.statut !== statut) db.upsert('vehicules', { id: v.id, statut });
+      if (v && o.statut !== 'Offre') {
+        const statut = o.statut === 'Livrée' ? 'Vendu' : o.statut === 'Annulée' ? 'En stock' : 'Réservé';
+        if (v.statut !== statut) db.upsert('vehicules', { id: v.id, statut });
+      }
+      // Offre qui devient commande : on propose tout de suite le rendez-vous de vente.
+      if (avant?.statut === 'Offre' || !avant) {
+        if (o.statut === 'En cours') {
+          apresEnregistrement = () => {
+            switchTab('planning');
+            openForm(null, { type: 'Vente / livraison', clientId: o.clientId, vehiculeId: o.vehiculeId, commandeId: o.id,
+              date: o.dateLivraison || today(), notes: `Vente de la commande ${o.numero}` });
+            toast('Commande validée : place le rendez-vous de vente');
+          };
+        }
+      }
     },
     afterDelete: o => {
       const v = db.get('vehicules', o.vehiculeId);
@@ -331,7 +358,7 @@ function render() {
   const q2 = $('#search').value.trim();
   const vide = {
     clients: ["Aucun client pour l'instant", 'Ajoute ton premier client avec « + Ajouter ».'],
-    commandes: ['Aucune commande', 'Une commande relie un client à un véhicule du stock.'],
+    commandes: ['Aucune offre ni commande', 'Crée une offre : une relance est planifiée à J+2, et une fois acceptée elle devient une commande.'],
     stock: ['Aucun véhicule ici', 'Les véhicules entrent en stock quand tu valides une reprise.'],
     reprises: ['Aucune reprise ici', 'Tape la plaque dans « + Nouvelle reprise » : la fiche se remplit toute seule.'],
     planning: ['Rien de prévu', 'Ajoute un essai, une expertise, une livraison ou une relance.'],
@@ -382,7 +409,7 @@ function renderFiltres() {
   const box = $('#filters');
   const add = $('#btn-add');
   add.style.display = onglet === 'stock' ? 'none' : '';
-  add.innerHTML = icon('plus', 18) + '<span>' + (onglet === 'reprises' ? 'Nouvelle reprise' : onglet === 'planning' ? 'Nouveau RDV' : 'Ajouter') + '</span>';
+  add.innerHTML = icon('plus', 18) + '<span>' + (onglet === 'reprises' ? 'Nouvelle reprise' : onglet === 'planning' ? 'Nouveau RDV' : onglet === 'commandes' ? 'Nouvelle offre' : 'Ajouter') + '</span>';
   if (!['stock', 'reprises', 'planning'].includes(onglet)) { box.innerHTML = ''; box.dataset.vue = ''; return; }
   const all = db.all('vehicules');
   const opt = (list, val) => list.map(o => `<option value="${esc(o)}"${o === val ? ' selected' : ''}>${esc(o || 'Tous')}</option>`).join('');
@@ -487,9 +514,18 @@ function fieldHtml(f, row) {
 
 const ficheHtml = fiche => Object.entries(fiche).map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('');
 let ficheEnCours = null;
+let imageEnCours = null;
+// Image du modèle fournie par le service de plaque (si disponible).
+function afficherImage(url) {
+  const box = $('#vehicule-image');
+  if (!box) return;
+  box.hidden = !url;
+  box.innerHTML = url ? `<img src="${esc(url)}" alt="" onerror="this.parentNode.hidden = true">` : '';
+}
 
 function lookupHtml(row) {
-  return `<div class="lookup">
+  return `<div class="vehicule-image" id="vehicule-image"${row.image ? '' : ' hidden'}>${row.image ? `<img src="${esc(row.image)}" alt="" onerror="this.parentNode.hidden = true">` : ''}</div>
+  <div class="lookup">
     <div class="field"><label for="f-immatriculation">Plaque d'immatriculation</label>
       <div class="inline"><input id="f-immatriculation" name="immatriculation" value="${esc(row.immatriculation || '')}" placeholder="AB-123-CD" autocapitalize="characters">
       <button type="button" id="btn-plaque">Rechercher</button></div></div>
@@ -505,13 +541,15 @@ function openForm(id, preset = {}) {
   const row = id ? db.get(current, id) : { ...preset };
   editing = { table: current, id };
   $('#form-title').textContent = id
-    ? (current === 'commandes' ? 'Commande ' + row.numero : current === 'vehicules' ? vehiculeNom(row) : current === 'planning' ? 'Rendez-vous' : clientNom(row))
+    ? (current === 'commandes' ? (row.statut === 'Offre' ? 'Offre ' : 'Commande ') + row.numero : current === 'vehicules' ? vehiculeNom(row) : current === 'planning' ? 'Rendez-vous' : clientNom(row))
     : (onglet === 'reprises' ? 'Nouvelle reprise' : tab.titreNouveau);
   $('#form-body').innerHTML = `<div class="grid">${tab.fields.map(f => fieldHtml(f, row)).join('')}</div>`;
   $('#btn-delete').style.display = id ? '' : 'none';
   $('#form-extra').innerHTML = current === 'vehicules' && (!id || row.statut === 'Reprise à étudier')
     ? `<button type="button" id="btn-refuser" class="danger">Refuser la reprise</button>
        <button type="button" id="btn-valider" class="success">Valider → entrer en stock</button>`
+    : current === 'commandes' && id && row.statut === 'Offre'
+    ? `<button type="button" id="btn-offre-validee" class="success">Offre acceptée → commande</button>`
     : '';
   if (current === 'vehicules') wireVehicule();
   if (current === 'commandes') wireCommande();
@@ -566,6 +604,8 @@ function wireVehicule() {
         n++;
       });
       ficheEnCours = r.ficheTechnique;
+      imageEnCours = r.image || '';
+      afficherImage(imageEnCours);
       $('#fiche-dl').innerHTML = ficheHtml(r.ficheTechnique);
       $('#fiche-n').textContent = Object.keys(r.ficheTechnique).length;
       $('#fiche').hidden = false;
@@ -611,7 +651,13 @@ function wireClient() {
 
 let apresEnregistrement = null;
 
+const relances = o => db.all('planning').filter(r => r.commandeId === o.id && r.type === 'Relance client' && !r.fait);
+
 function wireCommande() {
+  $('#btn-offre-validee')?.addEventListener('click', () => {
+    $('#f-statut').value = 'En cours';
+    $('#form').requestSubmit();
+  });
   // Pré-remplir le prix avec le prix de vente du véhicule choisi.
   $('#f-vehiculeId').addEventListener('change', e => {
     const v = db.get('vehicules', e.target.value);
@@ -628,18 +674,20 @@ $('#form').addEventListener('submit', e => {
   if (editing.table === 'clients') row.interets = fd.getAll('interets');
   TABS[editing.table].fields.filter(f => f.type === 'check').forEach(f => { row[f.k] = fd.has(f.k); });
   if (editing.table === 'vehicules' && ficheEnCours) row.ficheTechnique = ficheEnCours;
+  if (editing.table === 'vehicules' && imageEnCours !== null) row.image = imageEnCours;
   if (row.immatriculation) row.immatriculation = formatPlaque(row.immatriculation);
   if (row.vin) row.vin = VIN.clean(row.vin);
   if (editing.table === 'vehicules' && row.immatriculation) {
     const dup = db.all('vehicules').find(v => v.immatriculation === row.immatriculation && v.id !== editing.id);
     if (dup && !confirm(`La plaque ${row.immatriculation} existe déjà (${vehiculeNom(dup)}). Enregistrer quand même ?`)) return;
   }
+  const avant = editing.id ? { ...db.get(editing.table, editing.id) } : null;
   const after = tab.beforeSave?.(row);
   const saved = db.upsert(editing.table, row);
   after?.(saved);
-  tab.afterSave?.(saved);
   $('#dlg').close();
-  toast(editing.id ? 'Modifications enregistrées' : (editing.table === 'commandes' ? 'Commande ' + saved.numero + ' créée' : 'Ajouté'));
+  toast(editing.id ? 'Modifications enregistrées' : 'Ajouté');
+  tab.afterSave?.(saved, avant);
   render();
   const next = apresEnregistrement;
   apresEnregistrement = null;
@@ -660,7 +708,7 @@ $('#btn-delete').addEventListener('click', () => {
 });
 
 $('#btn-cancel').addEventListener('click', () => $('#dlg').close());
-$('#dlg').addEventListener('close', () => { apresEnregistrement = null; ficheEnCours = null; });
+$('#dlg').addEventListener('close', () => { apresEnregistrement = null; ficheEnCours = null; imageEnCours = null; });
 
 // ---------- Sauvegarde ----------
 $('#btn-menu').addEventListener('click', () => {
