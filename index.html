@@ -3,29 +3,32 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>CRM ZX</title>
+<title>ZX CRM</title>
 <meta name="theme-color" content="#0f172a">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="CRM ZX">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="icon" href="logo.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-512.png">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <header>
-  <h1>CRM ZX</h1>
+  <div class="brand"><img src="logo.svg" alt="" width="34" height="34"><span class="brand-name">ZX</span><span class="brand-sub">CRM</span></div>
   <nav id="tabs">
     <button data-tab="clients" class="active">Clients</button>
     <button data-tab="commandes">Commandes</button>
-    <button data-tab="vehicules">Véhicules</button>
+    <button data-tab="stock">Stock</button>
+    <button data-tab="reprises">Reprise</button>
+    <button data-tab="planning">Planning</button>
   </nav>
-  <button id="btn-menu" class="ghost" title="Réglages et sauvegarde">⋯</button>
+  <button id="btn-menu" class="ghost" title="Réglages et sauvegarde" aria-label="Réglages"></button>
 </header>
 
 <main>
   <div class="toolbar">
-    <input id="search" type="search" placeholder="Rechercher…" autocomplete="off">
-    <button id="btn-add" class="primary">+ Ajouter</button>
+    <div class="search"><span id="search-ico"></span><input id="search" type="search" placeholder="Rechercher…" autocomplete="off"></div>
+    <button id="btn-add" class="primary"></button>
   </div>
   <div id="filters" class="chips"></div>
   <p id="count" class="muted"></p>
@@ -33,9 +36,11 @@
 </main>
 
 <nav id="bottom-tabs">
-  <button data-tab="clients" class="active"><span>👤</span>Clients</button>
-  <button data-tab="commandes"><span>📄</span>Commandes</button>
-  <button data-tab="vehicules"><span>🚗</span>Véhicules</button>
+  <button data-tab="clients" class="active">Clients</button>
+  <button data-tab="commandes">Commandes</button>
+  <button data-tab="stock">Stock</button>
+  <button data-tab="reprises">Reprise</button>
+  <button data-tab="planning">Planning</button>
 </nav>
 
 <dialog id="dlg">
@@ -77,6 +82,7 @@
 
 <div id="toast"></div>
 
+<script src="icons.js"></script>
 <script src="vin.js"></script>
 <script src="plaque.js"></script>
 <script src="app.js"></script>

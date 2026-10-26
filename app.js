@@ -5,7 +5,7 @@
 const STORAGE_KEY = 'crmzx-v1';
 
 const db = {
-  data: { clients: [], vehicules: [], commandes: [], seq: 0 },
+  data: { clients: [], vehicules: [], commandes: [], planning: [], seq: 0 },
   load() {
     try {
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
@@ -85,6 +85,14 @@ const STATUTS_REPRISE = {
 let filtreReprise = 'À étudier';
 const interessesPar = v => db.all('clients').filter(c => (c.interets || []).includes(v.id));
 const num = x => Number(x) || 0;
+const TYPES_RDV = { 'Essai': 'b-blue', 'Expertise reprise': 'b-purple', 'Livraison': 'b-green', 'Rappel client': 'b-orange', 'Rendez-vous': 'b-blue', 'Autre': 'b-grey' };
+const FILTRES_RDV = {
+  'À venir': r => !r.fait && r.date >= today(),
+  'En retard': r => !r.fait && r.date < today(),
+  'Faits': r => !!r.fait,
+  'Tous': () => true,
+};
+let filtreRdv = 'À venir';
 const STATUT_COMMANDE = { 'Devis': 'b-blue', 'En cours': 'b-orange', 'Livrée': 'b-green', 'Annulée': 'b-red' };
 
 // ---------- Définition des onglets ----------
@@ -111,7 +119,8 @@ const TABS = {
       const nb = db.all('commandes').filter(o => o.clientId === c.id).length;
       const interets = (c.interets || []).map(id => db.get('vehicules', id)).filter(Boolean);
       const reprise = db.all('vehicules').find(v => v.vendeurId === c.id && REPRISE.includes(v.statut));
-      return `<div class="top"><span class="title">${esc(clientNom(c))}</span>
+      const initiales = ((c.prenom || '')[0] || '') + ((c.nom || c.societe || '')[0] || '');
+      return `<div class="top"><span class="who"><span class="avatar">${esc(initiales.toUpperCase())}</span><span class="title">${esc(clientNom(c))}</span></span>
         ${nb ? `<span class="badge b-blue">${nb} commande${nb > 1 ? 's' : ''}</span>` : ''}</div>
         <div class="sub">${esc([c.telephone, c.email].filter(Boolean).join(' · '))}</div>
         <div class="sub">${esc([c.ville, c.societe].filter(Boolean).join(' · '))}</div>
@@ -149,6 +158,13 @@ const TABS = {
       { k: 'boite', l: 'Boîte', type: 'select', options: ['', 'Manuelle', 'Automatique'] },
       { k: 'couleur', l: 'Couleur' },
       { k: 'type', l: 'Type', type: 'select', options: TYPES },
+      { k: 'puissanceCh', l: 'Puissance (ch)', type: 'number' },
+      { k: 'puissanceFiscale', l: 'Puissance fiscale (CV)', type: 'number' },
+      { k: 'cylindree', l: 'Cylindrée (cm³)', type: 'number' },
+      { k: 'co2', l: 'CO₂ (g/km)', type: 'number' },
+      { k: 'portes', l: 'Portes', type: 'number' },
+      { k: 'places', l: 'Places', type: 'number' },
+      { k: '_fiche', type: 'fiche' },
       { k: 'statut', l: 'Statut', type: 'select', options: Object.keys(STATUT_VEHICULE), def: 'Reprise à étudier' },
       { k: '_reprise', l: 'Reprise', type: 'section' },
       { k: 'vendeurId', l: 'Vendeur (client qui cède le véhicule)', type: 'ref', table: 'clients', full: true },
@@ -165,7 +181,7 @@ const TABS = {
       { k: '_interesses', type: 'interesses' },
       { k: 'notes', l: 'Notes', type: 'textarea', full: true },
     ],
-    search: v => [v.immatriculation, v.vin, v.marque, v.modele, v.finition],
+    search: v => [v.immatriculation, v.vin, v.marque, v.modele, v.finition, v.vendeurId ? clientNom(db.get('clients', v.vendeurId)) : ''],
     sort: (a, b) => (b.creeLe || '').localeCompare(a.creeLe || ''),
     filter: v => {
       if (vueVehicule === 'reprises') return STATUTS_REPRISE[filtreReprise](v);
@@ -236,7 +252,54 @@ const TABS = {
       if (v && v.statut === 'Réservé') db.upsert('vehicules', { id: v.id, statut: 'En stock' });
     },
   },
+
+  planning: {
+    titre: 'rendez-vous', titreNouveau: 'Nouveau rendez-vous',
+    fields: [
+      { k: 'type', l: 'Type', type: 'select', options: Object.keys(TYPES_RDV), def: 'Essai' },
+      { k: 'date', l: 'Date', type: 'date', def: today, required: true },
+      { k: 'heure', l: 'Heure', type: 'time' },
+      { k: 'duree', l: 'Durée', type: 'select', options: ['', '15 min', '30 min', '45 min', '1 h', '1 h 30', '2 h', 'Demi-journée'] },
+      { k: 'clientId', l: 'Client', type: 'ref', table: 'clients', full: true },
+      { k: 'vehiculeId', l: 'Véhicule (stock ou reprise)', type: 'ref', table: 'vehicules', tous: true, full: true },
+      { k: 'lieu', l: 'Lieu', full: true },
+      { k: 'notes', l: 'Notes', type: 'textarea', full: true },
+      { k: 'fait', l: 'Fait', type: 'check' },
+    ],
+    search: r => [r.type, r.lieu, r.notes, clientNom(db.get('clients', r.clientId)), vehiculeNom(db.get('vehicules', r.vehiculeId))],
+    filter: r => FILTRES_RDV[filtreRdv](r),
+    sort: (a, b) => {
+      const k = r => (r.date || '') + (r.heure || '99');
+      return filtreRdv === 'Faits' || filtreRdv === 'Tous' ? k(b).localeCompare(k(a)) : k(a).localeCompare(k(b));
+    },
+    card: r => {
+      const c = db.get('clients', r.clientId), v = db.get('vehicules', r.vehiculeId);
+      const retard = !r.fait && r.date < today();
+      const d = r.date ? new Date(r.date + 'T12:00') : null;
+      return `<div class="rdv${r.fait ? ' fait' : ''}">
+        <div class="rdv-date${r.date === today() ? ' today' : ''}${retard ? ' late' : ''}">
+          <span>${d ? d.toLocaleDateString('fr-FR', { weekday: 'short' }) : ''}</span>
+          <strong>${d ? d.getDate() : '?'}</strong>
+          <span>${d ? d.toLocaleDateString('fr-FR', { month: 'short' }) : ''}</span></div>
+        <div class="rdv-body"><div class="top"><span class="title">${esc(r.type)}${r.heure ? ' · ' + esc(r.heure) : ''}</span>
+          <span class="badge ${r.fait ? 'b-grey' : retard ? 'b-red' : TYPES_RDV[r.type] || 'b-blue'}">${r.fait ? 'Fait' : retard ? 'En retard' : esc(r.duree || 'À venir')}</span></div>
+          ${c ? `<div class="sub">${icon('clients', 14)} ${esc(clientNom(c))}${c.telephone ? ' · ' + esc(c.telephone) : ''}</div>` : ''}
+          ${v ? `<div class="sub">${icon('vehicules', 14)} ${esc(vehiculeNom(v))}${v.immatriculation ? ' · ' + esc(v.immatriculation) : ''}</div>` : ''}
+          ${r.lieu ? `<div class="sub">${esc(r.lieu)}</div>` : ''}</div></div>`;
+    },
+    canDelete: () => true,
+  },
 };
+
+// Onglets affichés : Stock et Reprise sont deux vues de la même liste de véhicules.
+const ONGLETS = {
+  clients: { table: 'clients', icon: 'clients', label: 'Clients', placeholder: 'Nom, téléphone, ville…' },
+  commandes: { table: 'commandes', icon: 'commandes', label: 'Commandes', placeholder: 'N°, client, véhicule…' },
+  stock: { table: 'vehicules', icon: 'stock', label: 'Stock', placeholder: 'Rechercher un modèle, une marque, une plaque…' },
+  reprises: { table: 'vehicules', icon: 'reprise', label: 'Reprise', placeholder: 'Modèle, plaque, vendeur…' },
+  planning: { table: 'planning', icon: 'planning', label: 'Planning', placeholder: 'Client, véhicule, type…' },
+};
+let onglet = 'clients';
 
 // ---------- Liste ----------
 let current = 'clients';
@@ -252,37 +315,42 @@ function render() {
     .sort(tab.sort);
   const total = db.all(current).length;
   const n = rows.length;
-  $('#count').textContent = current === 'vehicules' ? `${n} véhicule${n > 1 ? 's' : ''}`
-    : n !== total ? `${n} sur ${total}` : `${total} ${tab.titre}${total > 1 ? 's' : ''}`;
-  const vide = current === 'vehicules' && vueVehicule === 'stock'
-    ? "Aucun véhicule. Les véhicules entrent en stock quand tu valides une reprise (onglet Reprises)."
-    : total ? 'Aucun résultat.' : `Aucun ${tab.titre} pour l'instant.<br>Appuie sur « + Ajouter ».`;
+  const titre = { stock: 'véhicule', reprises: 'reprise', planning: 'rendez-vous' }[onglet] || tab.titre;
+  $('#count').textContent = (tab.filter || n !== total) ? `${n} ${titre}${n > 1 && titre !== 'rendez-vous' ? 's' : ''}` : `${total} ${titre}${total > 1 ? 's' : ''}`;
+  const q2 = $('#search').value.trim();
+  const vide = {
+    clients: ["Aucun client pour l'instant", 'Ajoute ton premier client avec « + Ajouter ».'],
+    commandes: ['Aucune commande', 'Une commande relie un client à un véhicule du stock.'],
+    stock: ['Aucun véhicule ici', 'Les véhicules entrent en stock quand tu valides une reprise.'],
+    reprises: ['Aucune reprise ici', 'Tape la plaque dans « + Nouvelle reprise » : la fiche se remplit toute seule.'],
+    planning: ['Rien de prévu', 'Ajoute un essai, une expertise, une livraison ou un rappel.'],
+  }[onglet];
+  const [t1, t2] = total && (q2 || tab.filter) ? ['Aucun résultat', 'Essaie une autre recherche ou d\'autres filtres.'] : vide;
   $('#list').innerHTML = n
     ? rows.map(r => `<div class="card" data-id="${r.id}">${tab.card(r)}</div>`).join('')
-    : `<div class="empty">${current === 'vehicules' && vueVehicule === 'reprises' ? 'Aucune reprise ici. Appuie sur « + Nouvelle reprise ».' : vide}</div>`;
+    : `<div class="empty">${ILLUS[ONGLETS[onglet].icon]}<strong>${t1}</strong><span>${t2}</span></div>`;
 }
 
-const sigFiltres = () => vueVehicule + JSON.stringify(filtresStock) + filtreReprise
-  + db.all('vehicules').map(v => v.statut + v.couleur).join();
+const sigFiltres = () => onglet + JSON.stringify(filtresStock) + filtreReprise + filtreRdv
+  + db.all('vehicules').map(v => v.statut + v.couleur).join() + db.all('planning').map(r => r.date + r.fait).join();
 
 // Sous-onglets et filtres de l'onglet Véhicules (reconstruits seulement quand nécessaire, pour garder le focus).
 function renderFiltres() {
   const box = $('#filters');
   const add = $('#btn-add');
-  add.style.display = current === 'vehicules' && vueVehicule === 'stock' ? 'none' : '';
-  add.textContent = current === 'vehicules' ? '+ Nouvelle reprise' : '+ Ajouter';
-  if (current !== 'vehicules') { box.innerHTML = ''; box.dataset.vue = ''; return; }
+  add.style.display = onglet === 'stock' ? 'none' : '';
+  add.innerHTML = icon('plus', 18) + '<span>' + (onglet === 'reprises' ? 'Nouvelle reprise' : onglet === 'planning' ? 'Nouveau RDV' : 'Ajouter') + '</span>';
+  if (!['stock', 'reprises', 'planning'].includes(onglet)) { box.innerHTML = ''; box.dataset.vue = ''; return; }
   const all = db.all('vehicules');
   const opt = (list, val) => list.map(o => `<option value="${esc(o)}"${o === val ? ' selected' : ''}>${esc(o || 'Tous')}</option>`).join('');
   const sig = sigFiltres();
   if (box.dataset.vue === sig) return;
   box.dataset.vue = sig;
-  const nStock = all.filter(v => !REPRISE.includes(v.statut) && v.statut !== 'Vendu').length;
-  const nReprise = all.filter(v => v.statut === 'Reprise à étudier').length;
-  let html = `<div class="segmented">
-    <button type="button" data-vue="stock" class="${vueVehicule === 'stock' ? 'active' : ''}">Stock (${nStock})</button>
-    <button type="button" data-vue="reprises" class="${vueVehicule === 'reprises' ? 'active' : ''}">Reprises (${nReprise})</button></div>`;
-  if (vueVehicule === 'reprises') {
+  let html = '';
+  if (onglet === 'planning') {
+    html = `<div class="chips">${Object.keys(FILTRES_RDV).map(f =>
+      `<button type="button" data-rdv="${f}" class="chip${f === filtreRdv ? ' active' : ''}">${f} (${db.all('planning').filter(FILTRES_RDV[f]).length})</button>`).join('')}</div>`;
+  } else if (vueVehicule === 'reprises') {
     html += `<div class="chips">${Object.keys(STATUTS_REPRISE).map(f =>
       `<button type="button" data-reprise="${f}" class="chip${f === filtreReprise ? ' active' : ''}">${f} (${all.filter(STATUTS_REPRISE[f]).length})</button>`).join('')}</div>`;
   } else {
@@ -301,10 +369,12 @@ function renderFiltres() {
 }
 
 function switchTab(name) {
-  current = name;
+  onglet = name;
+  current = ONGLETS[name].table;
+  if (current === 'vehicules') vueVehicule = name;
   document.querySelectorAll('[data-tab]').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
   $('#search').value = '';
-  $('#search').placeholder = { clients: 'Nom, téléphone, ville…', commandes: 'N°, client, véhicule…', vehicules: 'Rechercher un modèle, une marque, une plaque…' }[name];
+  $('#search').placeholder = ONGLETS[name].placeholder;
   render();
 }
 
@@ -337,6 +407,12 @@ function fieldHtml(f, row) {
         <button type="button" id="btn-nouvelle-reprise">+ Nouvelle</button></div>
         <span class="hint">« + Nouvelle » enregistre le client puis ouvre une fiche de reprise à son nom.</span></div>`;
     }
+    case 'fiche': {
+      const fiche = row.ficheTechnique || {};
+      const n = Object.keys(fiche).length;
+      return `<details class="fiche full" id="fiche"${n ? '' : ' hidden'}><summary>Fiche technique complète (<span id="fiche-n">${n}</span> infos)</summary>
+        <dl id="fiche-dl">${ficheHtml(fiche)}</dl></details>`;
+    }
     case 'interesses': {
       const cs = row.id ? interessesPar(row) : [];
       return cs.length ? `<div class="field full"><label>Clients intéressés</label><span>${esc(cs.map(clientNom).join(', '))}</span></div>` : '';
@@ -345,24 +421,29 @@ function fieldHtml(f, row) {
       <div class="chips"><button type="button" class="chip" data-cote="lacentrale">La Centrale</button>
       <button type="button" class="chip" data-cote="argus">L'argus</button>
       <button type="button" class="chip" data-cote="leboncoin">Annonces Leboncoin</button></div></div>`;
+    case 'check': return `<label class="field check-field"><input type="checkbox" id="${id}" name="${f.k}"${val === true ? ' checked' : ''}> ${esc(f.l)}</label>`;
     case 'textarea': return `<div class="${cls}">${label}<textarea id="${id}" name="${f.k}">${esc(val)}</textarea></div>`;
     case 'select': return `<div class="${cls}">${label}<select id="${id}" name="${f.k}">${f.options.map(o => `<option${o === val ? ' selected' : ''}>${esc(o)}</option>`).join('')}</select></div>`;
     case 'ref': {
       let opts = db.all(f.table).slice();
       if (f.table === 'vehicules') {
         // Proposer les véhicules disponibles, plus celui déjà lié à la commande.
-        opts = opts.filter(v => (v.statut !== 'Vendu' && !REPRISE.includes(v.statut)) || v.id === val);
+        if (!f.tous) opts = opts.filter(v => (v.statut !== 'Vendu' && !REPRISE.includes(v.statut)) || v.id === val);
         opts.sort((a, b) => norm(vehiculeNom(a)).localeCompare(norm(vehiculeNom(b))));
       } else {
         opts.sort((a, b) => norm(clientNom(a)).localeCompare(norm(clientNom(b))));
       }
-      const name = f.table === 'clients' ? clientNom : v => vehiculeNom(v) + (v.immatriculation ? ' — ' + v.immatriculation : '') + (v.statut === 'Réservé' && v.id !== val ? ' (réservé)' : '');
+      const name = f.table === 'clients' ? clientNom : v => vehiculeNom(v) + (v.immatriculation ? ' — ' + v.immatriculation : '')
+        + (f.tous && REPRISE.includes(v.statut) ? ' (reprise)' : v.statut === 'Réservé' && v.id !== val ? ' (réservé)' : '');
       const empty = opts.length ? 'Choisir…' : (f.table === 'clients' ? "Aucun client : ajoute-le d'abord" : 'Aucun véhicule disponible');
       return `<div class="${cls}">${label}<select id="${id}" name="${f.k}"${req}><option value="">${empty}</option>${opts.map(o => `<option value="${o.id}"${o.id === val ? ' selected' : ''}>${esc(name(o))}</option>`).join('')}</select></div>`;
     }
     default: return `<div class="${cls}">${label}<input id="${id}" name="${f.k}" type="${f.type || 'text'}" value="${esc(val)}"${req}${f.type === 'number' ? ' inputmode="decimal" step="any"' : ''}></div>`;
   }
 }
+
+const ficheHtml = fiche => Object.entries(fiche).map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('');
+let ficheEnCours = null;
 
 function lookupHtml(row) {
   return `<div class="lookup">
@@ -380,7 +461,9 @@ function openForm(id, preset = {}) {
   const tab = TABS[current];
   const row = id ? db.get(current, id) : { ...preset };
   editing = { table: current, id };
-  $('#form-title').textContent = id ? (current === 'commandes' ? 'Commande ' + row.numero : 'Modifier le ' + tab.titre) : tab.titreNouveau;
+  $('#form-title').textContent = id
+    ? (current === 'commandes' ? 'Commande ' + row.numero : current === 'vehicules' ? vehiculeNom(row) : current === 'planning' ? 'Rendez-vous' : clientNom(row))
+    : (onglet === 'reprises' ? 'Nouvelle reprise' : tab.titreNouveau);
   $('#form-body').innerHTML = `<div class="grid">${tab.fields.map(f => fieldHtml(f, row)).join('')}</div>`;
   $('#btn-delete').style.display = id ? '' : 'none';
   $('#form-extra').innerHTML = current === 'vehicules' && (!id || row.statut === 'Reprise à étudier')
@@ -427,11 +510,24 @@ function wireVehicule() {
     btn.textContent = 'Recherche…';
     try {
       const r = await Plaque.rechercher(plate.value);
-      // Le résultat de la plaque remplace l'identité du véhicule, et complète le reste.
-      ['marque', 'modele', 'finition'].forEach(k => { if (r[k]) $('#f-' + k).value = r[k]; });
-      ['annee', 'miseEnCirculation', 'carburant', 'vin'].forEach(k => { if (r[k] && !$('#f-' + k).value) $('#f-' + k).value = r[k]; });
+      // Le résultat de la plaque remplace l'identité du véhicule, et complète tous les champs vides.
+      let n = 0;
+      ['marque', 'modele', 'finition'].forEach(k => { if (r[k]) { $('#f-' + k).value = r[k]; n++; } });
+      ['annee', 'miseEnCirculation', 'carburant', 'boite', 'couleur', 'type', 'puissanceCh', 'puissanceFiscale',
+        'cylindree', 'co2', 'portes', 'places', 'vin'].forEach(k => {
+        const el = $('#f-' + k);
+        if (!r[k] || !el || el.value) return;
+        if (el.tagName === 'SELECT' && ![...el.options].some(o => o.value === r[k])) return;
+        el.value = r[k];
+        el.classList.add('auto');
+        n++;
+      });
+      ficheEnCours = r.ficheTechnique;
+      $('#fiche-dl').innerHTML = ficheHtml(r.ficheTechnique);
+      $('#fiche-n').textContent = Object.keys(r.ficheTechnique).length;
+      $('#fiche').hidden = false;
       $('#vin-hint').textContent = r.description ? 'Trouvé : ' + r.description : 'Véhicule trouvé.';
-      toast(`Véhicule trouvé (${Plaque.usageCeMois()} recherche(s) ce mois-ci)`);
+      toast(`${n} champs remplis automatiquement (${Plaque.usageCeMois()} recherche(s) ce mois-ci)`);
     } catch (err) {
       toast(err.message);
     } finally {
@@ -462,9 +558,8 @@ function wireClient() {
   $('#btn-nouvelle-reprise').addEventListener('click', () => {
     if (!$('#form').reportValidity()) return;
     apresEnregistrement = saved => {
-      vueVehicule = 'reprises';
       filtreReprise = 'À étudier';
-      switchTab('vehicules');
+      switchTab('reprises');
       openForm(null, { vendeurId: saved.id });
     };
     $('#form').requestSubmit();
@@ -488,6 +583,8 @@ $('#form').addEventListener('submit', e => {
   const fd = new FormData(e.target);
   fd.forEach((v, k) => { row[k] = typeof v === 'string' ? v.trim() : v; });
   if (editing.table === 'clients') row.interets = fd.getAll('interets');
+  TABS[editing.table].fields.filter(f => f.type === 'check').forEach(f => { row[f.k] = fd.has(f.k); });
+  if (editing.table === 'vehicules' && ficheEnCours) row.ficheTechnique = ficheEnCours;
   if (row.immatriculation) row.immatriculation = formatPlaque(row.immatriculation);
   if (row.vin) row.vin = VIN.clean(row.vin);
   if (editing.table === 'vehicules' && row.immatriculation) {
@@ -520,7 +617,7 @@ $('#btn-delete').addEventListener('click', () => {
 });
 
 $('#btn-cancel').addEventListener('click', () => $('#dlg').close());
-$('#dlg').addEventListener('close', () => { apresEnregistrement = null; });
+$('#dlg').addEventListener('close', () => { apresEnregistrement = null; ficheEnCours = null; });
 
 // ---------- Sauvegarde ----------
 $('#btn-menu').addEventListener('click', () => {
@@ -571,7 +668,7 @@ $('#search').addEventListener('input', render);
 $('#filters').addEventListener('click', e => {
   const b = e.target.closest('button');
   if (!b) return;
-  if (b.dataset.vue) { vueVehicule = b.dataset.vue; $('#search').value = ''; }
+  if (b.dataset.rdv) filtreRdv = b.dataset.rdv;
   else if (b.dataset.reprise) filtreReprise = b.dataset.reprise;
   else if (b.id === 'btn-reset-filtres') Object.assign(filtresStock, { statut: 'Disponibles', couleur: '', type: '', anneeMin: '', anneeMax: '', kmMax: '' });
   else return;
@@ -592,4 +689,11 @@ $('#list').addEventListener('click', e => {
 });
 
 db.load();
+// Icônes des onglets et des boutons.
+document.querySelectorAll('[data-tab]').forEach(b => {
+  const o = ONGLETS[b.dataset.tab];
+  b.innerHTML = icon(o.icon, b.closest('#bottom-tabs') ? 22 : 18) + '<span>' + o.label + '</span>';
+});
+$('#btn-menu').innerHTML = icon('reglages', 20);
+$('#search-ico').innerHTML = icon('recherche', 18);
 switchTab('clients');

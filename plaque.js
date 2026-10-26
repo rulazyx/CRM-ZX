@@ -49,18 +49,56 @@ const Plaque = (() => {
     if (res.status === 429) throw new Error('Quota atteint pour ce mois.');
     if (!res.ok || json.error || !json.data) throw new Error(json.message || `Véhicule introuvable (erreur ${res.status}).`);
     const d = json.data;
-    const mec = (d.AWN_date_mise_en_circulation || '').match(/^(\d{2})-(\d{2})-(\d{4})$/);
+    // Le service renvoie plus de 80 champs dont les noms varient : on cherche par mot-clé.
+    const pick = (...motifs) => {
+      for (const m of motifs) {
+        const k = Object.keys(d).find(key => m.test(key) && d[key] !== '' && d[key] != null && typeof d[key] !== 'object');
+        if (k) return String(d[k]).trim();
+      }
+      return '';
+    };
+    const mec = pick(/date_mise_en_circulation/i, /date1erCir_fr/i, /mise.*circulation/i).match(/^(\d{2})[-/](\d{2})[-/](\d{4})$/);
+    const carrosserie = pick(/carrosserie(?!.*code)/i, /body/i);
+    const genre = pick(/^AWN_genre$/i, /genre(?!.*code)/i);
+    const boite = pick(/boite/i, /transmission(?!.*code)/i, /gearbox/i);
     return {
-      marque: titre(d.AWN_marque),
-      modele: titre(d.AWN_modele),
-      finition: d.AWN_version || d.AWN_label_moteur || '',
-      annee: mec ? mec[3] : '',
+      marque: titre(pick(/^AWN_marque$/i, /marque(?!.*(image|logo|id))/i)),
+      modele: titre(pick(/^AWN_modele$/i, /modele(?!.*(image|photo|id|etude|prf|label))/i)),
+      finition: pick(/^AWN_version$/i, /version/i, /label_moteur/i),
+      annee: mec ? mec[3] : pick(/annee(?!.*(debut|fin))/i),
       miseEnCirculation: mec ? `${mec[3]}-${mec[2]}-${mec[1]}` : '',
-      carburant: carburant(d.AWN_energie),
-      vin: d.AWN_VIN || '',
-      description: d.AWN_selector_modele_label || d.AWN_label || '',
+      carburant: carburant(pick(/energie(?!.*code)/i, /carburant/i, /fuel/i)),
+      boite: /auto|robot|cvt|dsg|edc|eat/i.test(boite) ? 'Automatique' : /manu|meca/i.test(boite) ? 'Manuelle' : '',
+      couleur: titre(pick(/couleur/i, /colou?r/i)),
+      type: typeVehicule(carrosserie, genre),
+      puissanceCh: pick(/puissance_chevaux/i, /puisFiscReelCH/i, /puissance_din/i),
+      puissanceFiscale: pick(/puissance_fiscale/i, /^puisFisc$/i),
+      cylindree: pick(/cylindre_capacite/i, /^ccm$/i, /cylindree(?!_liters)/i),
+      co2: pick(/co_?2/i),
+      portes: pick(/portes/i),
+      places: pick(/places|passagers|seats/i),
+      vin: pick(/_VIN$/i, /^vin$/i),
+      description: pick(/selector_modele_label/i, /tecdoc_modele_description/i, /label$/i),
+      // Tout ce que renvoie le service, gardé dans la fiche du véhicule.
+      ficheTechnique: Object.fromEntries(Object.entries(d)
+        .filter(([k, v]) => v !== '' && v != null && typeof v !== 'object' && !/image|photo|logo/i.test(k))
+        .map(([k, v]) => [k.replace(/^AWN_/, '').replace(/_/g, ' '), String(v)])),
     };
   }
+
+  // Type de véhicule déduit de la carrosserie et du genre de la carte grise.
+  function typeVehicule(carrosserie, genre) {
+    const c = norm(carrosserie + ' ' + genre);
+    if (/ctte|camionnette|utilitaire|fourgon|\bvu\b|deriv/.test(c)) return 'Utilitaire';
+    if (/pick/.test(c)) return 'Pick-up';
+    if (/break|sw|estate|touring/.test(c)) return 'Break';
+    if (/monospace|mpv/.test(c)) return 'Monospace';
+    if (/suv|4x4|tout.?terrain|crossover/.test(c)) return 'SUV / 4x4';
+    if (/coupe|cabrio|roadster/.test(c)) return 'Coupé / Cabriolet';
+    if (/berline|sedan|4 portes/.test(c)) return 'Berline';
+    return '';
+  }
+  const norm = s => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
   return { settings, saveSettings, usageCeMois, rechercher, DEFAULT_HOST };
 })();

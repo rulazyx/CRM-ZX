@@ -1,9 +1,12 @@
 {
-  "name": "CRM ZX",
-  "short_name": "CRM ZX",
+  "name": "ZX CRM",
+  "short_name": "ZX",
   "start_url": ".",
   "display": "standalone",
   "background_color": "#f1f5f9",
   "theme_color": "#0f172a",
-  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+  "icons": [
+    { "src": "logo.svg", "sizes": "any", "type": "image/svg+xml" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
 }
