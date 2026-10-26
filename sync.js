@@ -2,22 +2,27 @@
 // Chaque garage est une entreprise : toutes ses données tiennent dans sa ligne JSON (table crm_entreprises),
 // partagée par son équipe et invisible des autres garages. Les comptes de l'équipe sont dans crm_membres. Chaque fiche garde sa date de
 // modification : quand deux appareils modifient en même temps, on fusionne fiche par fiche.
-// L'adresse et la clé publique se saisissent dans les réglages (ou via le QR code d'installation) :
-// rien n'est écrit dans le dépôt.
+// L'adresse et la clé publique viennent de config.js (clé publique, faite pour être visible : ce sont les
+// règles de la base qui protègent les données), ou des réglages de l'appareil, ou du QR code d'installation.
+// Les comptes sont créés par le super-admin, sans email : mot de passe de départ 12345678, à changer à la 1re connexion.
 const Sync = (() => {
   const KEY = 'crmzx-sync';
   const TABLES = ['clients', 'vehicules', 'commandes', 'planning'];
   let client = null;
   let user = null;
   let role = null;
-  let entreprise = null; // { id, nom }
+  let entreprise = null; // { id, nom, demo }
+  let profil = {}; // { superadmin, doit_changer_mdp }
   let timer = null;
   let enCours = null;
   let onChange = () => {};
   let status = 'off'; // off | connexion | ok | envoi | erreur | refuse
 
   function settings() {
-    try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return {}; }
+    const c = window.CRMZX_CONFIG || {};
+    let s = {};
+    try { s = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { /* rien */ }
+    return { url: s.url || c.supabaseUrl || '', cle: s.cle || c.supabaseCle || '' };
   }
   function saveSettings(s) {
     try { localStorage.setItem(KEY, JSON.stringify(s)); } catch (e) { /* stockage indisponible */ }
@@ -48,13 +53,12 @@ const Sync = (() => {
     lireLienConfig();
     const s = settings();
     if (!s.url || !s.cle || !window.supabase) { setStatus('off'); return; }
-    client = window.supabase.createClient(s.url, s.cle, { auth: { persistSession: true, detectSessionInUrl: true } });
+    client = window.supabase.createClient(s.url, s.cle, { auth: { persistSession: true, detectSessionInUrl: false, storage: stockage } });
     client.auth.onAuthStateChange((event, session) => {
-      if (event === 'PASSWORD_RECOVERY') { user = session?.user || null; setStatus('nouveau-mdp'); return; }
       const avant = user;
       user = session?.user || null;
       if (user && (!avant || avant.id !== user.id)) setTimeout(demarrer);
-      if (!user) { role = null; entreprise = null; setStatus('off'); }
+      if (!user) { role = null; entreprise = null; profil = {}; setStatus('off'); }
     });
     client.auth.getSession().then(({ data }) => {
       user = data.session?.user || null;
@@ -63,6 +67,14 @@ const Sync = (() => {
     window.addEventListener('focus', () => { if (role) pull(); });
   }
 
+  // « Rester connecté » : session gardée sur l'appareil ; sinon elle s'efface à la fermeture du navigateur.
+  const rester = () => { try { return localStorage.getItem('crmzx-rester') !== '0'; } catch (e) { return true; } };
+  const stockage = {
+    getItem: k => { try { return (rester() ? localStorage : sessionStorage).getItem(k); } catch (e) { return null; } },
+    setItem: (k, v) => { try { (rester() ? localStorage : sessionStorage).setItem(k, v); } catch (e) { /* rien */ } },
+    removeItem: k => { try { localStorage.removeItem(k); sessionStorage.removeItem(k); } catch (e) { /* rien */ } },
+  };
+
   // Connexion réussie : on vérifie que le compte est autorisé, puis on récupère les données.
   async function demarrer() {
     setStatus('connexion');
@@ -70,43 +82,45 @@ const Sync = (() => {
     if (error) { console.error(error); setStatus('erreur'); return; }
     if (!data || !data.role) { role = null; setStatus('refuse'); return; }
     role = data.role;
-    entreprise = { id: data.entreprise_id, nom: data.nom };
+    entreprise = { id: data.entreprise_id, nom: data.nom, demo: !!data.demo };
+    profil = { superadmin: !!data.superadmin, doit_changer_mdp: !!data.doit_changer_mdp && !data.demo };
     await pull();
+    if (profil.doit_changer_mdp) setStatus('nouveau-mdp');
     client.channel('entreprise')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'crm_entreprises', filter: 'id=eq.' + entreprise.id }, () => pull())
       .subscribe();
   }
 
-  async function connecter(email, motDePasse) {
-    if (!client) throw new Error("Enregistre d'abord l'adresse et la clé Supabase.");
-    const { error } = await client.auth.signInWithPassword({ email, password: motDePasse });
-    if (error) throw new Error(/invalid login/i.test(error.message) ? 'Email ou mot de passe incorrect.'
-      : /not confirmed/i.test(error.message) ? "Confirme d'abord ton email avec le lien reçu." : error.message);
-  }
-  async function creerCompte(email, motDePasse, nomEntreprise) {
-    if (!client) throw new Error("Enregistre d'abord l'adresse et la clé Supabase.");
-    if ((motDePasse || '').length < 8) throw new Error('Le mot de passe doit faire au moins 8 caractères.');
-    const { data, error } = await client.auth.signUp({
-      email, password: motDePasse,
-      options: { emailRedirectTo: location.origin + location.pathname, data: { entreprise: (nomEntreprise || '').trim() } },
-    });
-    if (error) throw new Error(/already registered/i.test(error.message) ? 'Ce compte existe déjà : connecte-toi.' : error.message);
-    return !data.session; // true : un email de confirmation a été envoyé
-  }
-  async function motDePasseOublie(email) {
-    const { error } = await client.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname });
-    if (error) throw new Error(error.message);
+  // Identifiant sans @ (ex. « test » pour la démo) : compte interne de l'appli.
+  const versEmail = id => { const x = (id || '').trim().toLowerCase(); return x.includes('@') ? x : x + '@demo.crmzx.re'; };
+  async function connecter(identifiant, motDePasse, garder = true) {
+    if (!client) throw new Error("L'appli n'est pas encore reliée à sa base (voir Réglages techniques).");
+    try { localStorage.setItem('crmzx-rester', garder ? '1' : '0'); } catch (e) { /* rien */ }
+    const { error } = await client.auth.signInWithPassword({ email: versEmail(identifiant), password: motDePasse });
+    if (error) throw new Error(/invalid login/i.test(error.message) ? 'Identifiant ou mot de passe incorrect.' : error.message);
   }
   async function nouveauMotDePasse(motDePasse) {
     if ((motDePasse || '').length < 8) throw new Error('Le mot de passe doit faire au moins 8 caractères.');
+    if (motDePasse === '12345678') throw new Error('Choisis un mot de passe différent de celui de départ.');
     const { error } = await client.auth.updateUser({ password: motDePasse });
-    if (error) throw new Error(error.message);
-    await demarrer();
+    if (error) throw new Error(/different from the old/i.test(error.message) ? 'Choisis un mot de passe différent de l\'ancien.' : error.message);
+    await client.rpc('crm_mdp_change');
+    profil.doit_changer_mdp = false;
+    setStatus('ok');
   }
+  // Appels réservés (vérifiés par la base) : super-admin et admin de garage.
+  async function rpc(nom, args) {
+    const { data, error } = await client.rpc(nom, args);
+    if (error) throw new Error(error.message);
+    return data;
+  }
+  const creerGarage = (nom, email) => rpc('crm_creer_garage', { p_nom: nom, p_email: email });
+  const garages = () => rpc('crm_garages');
+  const reinitMdp = email => rpc('crm_reinit_mdp', { p_email: email });
 
   async function deconnecter() {
     if (client) await client.auth.signOut();
-    user = null; role = null; entreprise = null;
+    user = null; role = null; entreprise = null; profil = {};
     setStatus('off');
   }
 
@@ -165,14 +179,11 @@ const Sync = (() => {
 
   // Gestion de l'équipe (réservée à l'admin).
   async function membres() {
-    const { data, error } = await client.from('crm_membres').select('email, role, ajoute_le').order('ajoute_le');
+    const { data, error } = await client.from('crm_membres').select('email, role, ajoute_le, doit_changer_mdp').order('ajoute_le');
     if (error) throw new Error(error.message);
     return data;
   }
-  async function ajouterMembre(email, r) {
-    const { error } = await client.from('crm_membres').insert({ email: email.trim().toLowerCase(), role: r, entreprise_id: entreprise.id });
-    if (error) throw new Error(error.code === '23505' ? 'Cet email a déjà un compte (dans ton équipe ou dans un autre garage).' : error.message);
-  }
+  const ajouterMembre = (email, r) => rpc('crm_ajouter_membre', { p_email: email, p_role: r });
   // Nom affiché de l'entreprise (modifiable dans Paramètres).
   async function renommer(nom) {
     if (!entreprise || !nom) return;
@@ -185,8 +196,8 @@ const Sync = (() => {
   }
 
   return {
-    init, settings, saveSettings, configure, lienConfig, connecter, creerCompte, motDePasseOublie, nouveauMotDePasse,
+    init, settings, saveSettings, configure, lienConfig, connecter, nouveauMotDePasse, creerGarage, garages, reinitMdp,
     deconnecter, changed, pull, membres, ajouterMembre, retirerMembre, renommer,
-    get entreprise() { return entreprise; }, get client() { return client; }, get user() { return user; }, get role() { return role; }, get status() { return status; },
+    get entreprise() { return entreprise; }, get profil() { return profil; }, get client() { return client; }, get user() { return user; }, get role() { return role; }, get status() { return status; },
   };
 })();

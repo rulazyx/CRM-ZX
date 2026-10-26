@@ -23,15 +23,18 @@
     <img src="logo.svg" alt="" width="72" height="72">
     <h1><span class="brand-name">ZX</span> <span class="brand-sub">CRM</span></h1>
     <p id="auth-texte" class="muted">Connecte-toi pour accéder au CRM.</p>
-    <div class="field" id="auth-champ-entreprise" hidden><label for="auth-entreprise">Nom de ton entreprise</label><input id="auth-entreprise" autocomplete="organization" placeholder="ex. Garage du Sud"></div>
-    <div class="field" id="auth-champ-email"><label for="auth-email">Email</label><input id="auth-email" type="email" autocomplete="username" required></div>
-    <div class="field" id="auth-champ-mdp"><label for="auth-mdp">Mot de passe</label><input id="auth-mdp" type="password" autocomplete="current-password" minlength="8" required></div>
+    <div class="field" id="auth-champ-email"><label for="auth-email">Email ou identifiant</label><input id="auth-email" type="text" inputmode="email" autocomplete="username" autocapitalize="none" spellcheck="false" required></div>
+    <div class="field" id="auth-champ-mdp"><label for="auth-mdp">Mot de passe</label><input id="auth-mdp" type="password" autocomplete="current-password" required></div>
+    <div class="field" id="auth-champ-mdp2" hidden><label for="auth-mdp2">Confirme le mot de passe</label><input id="auth-mdp2" type="password" autocomplete="new-password"></div>
+    <label class="check auth-rester" id="auth-champ-rester"><input type="checkbox" id="auth-rester" checked><span>Rester connecté sur cet appareil</span></label>
     <button type="submit" id="auth-ok" class="primary">Se connecter</button>
-    <div class="auth-liens">
-      <button type="button" id="auth-creer" class="lien">Créer mon compte</button>
-      <button type="button" id="auth-oubli" class="lien">Mot de passe oublié ?</button>
-      <button type="button" id="auth-sortir" class="lien" hidden>Se déconnecter</button>
-    </div>
+    <p class="hint auth-aide" id="auth-aide">Mot de passe oublié ? Demande à ton administrateur de le réinitialiser.</p>
+    <button type="button" id="auth-sortir" class="lien" hidden>Se déconnecter</button>
+    <details id="auth-config" hidden><summary>Réglages techniques</summary>
+      <div class="stack" style="margin-top:8px">
+        <input id="auth-sb-url" placeholder="https://xxxx.supabase.co" autocomplete="off" spellcheck="false" aria-label="Adresse Supabase">
+        <input id="auth-sb-cle" type="password" placeholder="Clé publique (publishable)" autocomplete="off" spellcheck="false" aria-label="Clé publique Supabase">
+        <button type="button" id="auth-sb-ok">Enregistrer</button></div></details>
   </form>
 </div>
 <div id="install-banner" hidden>
@@ -116,12 +119,26 @@
     <p class="muted" id="compte-intro">Avec un compte, les données de ton garage sont gardées en ligne et identiques sur le téléphone et l'ordinateur. Aucun autre garage ne peut les voir.</p>
     <div class="stack" id="compte-connecte" hidden>
       <span class="hint" id="sync-etat"></span>
+      <details id="changer-mdp"><summary>Changer mon mot de passe</summary>
+        <div class="stack" style="margin-top:8px">
+          <input id="mdp-nouveau" type="password" placeholder="Nouveau mot de passe (8 caractères min.)" autocomplete="new-password">
+          <input id="mdp-nouveau2" type="password" placeholder="Confirme le mot de passe" autocomplete="new-password">
+          <button type="button" id="btn-mdp-changer" class="primary">Enregistrer le mot de passe</button></div></details>
+      <button type="button" id="btn-demo-reset" hidden>Remettre les données de démo à zéro</button>
       <button type="button" id="btn-deconnexion">Se déconnecter</button>
     </div>
   </section>
+  <section class="panneau" id="superadmin" hidden>
+    <h2>Garages clients</h2>
+    <p class="muted">Crée le compte d'un garage : il se connecte avec son email et le mot de passe <strong>12345678</strong>, puis choisit le sien. Tu ne vois jamais ses données.</p>
+    <div class="grid"><div class="field"><label for="sa-nom">Nom de l'entreprise</label><input id="sa-nom" autocomplete="off"></div>
+      <div class="field"><label for="sa-email">Email</label><input id="sa-email" type="email" autocomplete="off"></div></div>
+    <div class="p-actions"><span class="spacer"></span><button type="button" id="btn-sa-creer" class="primary">Créer le compte</button></div>
+    <div id="sa-liste" class="sa-liste"></div>
+  </section>
   <section class="panneau" id="equipe" hidden>
     <h2>Équipe</h2>
-    <p class="muted">Ajoute l'email d'un collègue : il rejoint ton garage en créant son compte avec ce même email.</p>
+    <p class="muted">Ajoute un collègue : son compte est créé avec le mot de passe <strong>12345678</strong>, qu'il change à sa première connexion.</p>
     <div id="equipe-liste" class="equipe-liste"></div>
     <div class="inline"><input id="equipe-email" type="email" placeholder="email@exemple.fr" autocomplete="off">
       <select id="equipe-role"><option value="vendeur">Vendeur</option><option value="admin">Admin</option></select>
@@ -246,6 +263,7 @@
 
 <div id="toast"></div>
 
+<script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="icons.js"></script>
 <script src="vin.js"></script>
@@ -257,6 +275,7 @@
 <script src="reprise.js"></script>
 <script src="parametres.js"></script>
 <script src="donnees.js"></script>
+<script src="demo.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

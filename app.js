@@ -798,6 +798,7 @@ function remplirParametres() {
   $('#set-sb-cle').value = sb.cle || '';
   afficherSync(Sync.status, Sync.user, Sync.role);
   afficherEquipe();
+  afficherGarages();
   afficherQr();
   majInstall();
   $('#set-usage').textContent = `${Plaque.usageCeMois()} recherche(s) par plaque ce mois-ci sur cet appareil (10 gratuites par mois avec l'offre Basic).`;
@@ -805,111 +806,116 @@ function remplirParametres() {
 $('#btn-menu').addEventListener('click', () => switchTab('parametres'));
 
 // ---------- Comptes et synchronisation ----------
-const SYNC_TEXTE = { off: 'Non connecté', connexion: 'Connexion…', ok: 'Synchronisé', envoi: 'Envoi…', erreur: 'Erreur de synchro', refuse: 'Accès en attente', 'nouveau-mdp': 'Nouveau mot de passe' };
-let modeAuth = 'connexion'; // connexion | creer | nouveau-mdp
+const SYNC_TEXTE = { off: 'Non connecté', connexion: 'Connexion…', ok: 'Synchronisé', envoi: 'Envoi…', erreur: 'Erreur de synchro', refuse: 'Accès refusé', 'nouveau-mdp': 'Nouveau mot de passe' };
 let etaitConnecte = false;
 
 function afficherSync(status, user, role) {
   const pill = $('#sync-pill');
-  pill.hidden = !Sync.configure();
-  pill.className = 'sync-pill s-' + status;
-  pill.innerHTML = icon('nuage', 16) + '<span>' + SYNC_TEXTE[status] + '</span>';
-  $('#sync-etat').textContent = user ? `Connecté : ${user.email}${role ? ' · ' + (role === 'admin' ? 'Admin' : 'Vendeur') : ''} · ${SYNC_TEXTE[status]}` : '';
+  const demo = !!Sync.entreprise?.demo;
+  pill.hidden = !Sync.configure() || !role;
+  pill.className = 'sync-pill s-' + status + (demo ? ' demo' : '');
+  pill.innerHTML = icon('nuage', 16) + '<span>' + (demo ? 'Démo · ' : '') + SYNC_TEXTE[status] + '</span>';
+  $('#sync-etat').textContent = user ? `Connecté : ${user.email}${role ? ' · ' + (Sync.profil.superadmin ? 'Super-admin' : role === 'admin' ? 'Admin' : 'Vendeur') : ''} · ${SYNC_TEXTE[status]}` : '';
   $('#compte-connecte').hidden = !user;
-  $('#equipe').hidden = role !== 'admin';
+  $('#changer-mdp').hidden = demo;
+  $('#btn-demo-reset').hidden = !demo;
+  $('#equipe').hidden = role !== 'admin' || demo;
+  $('#superadmin').hidden = !Sync.profil.superadmin;
   $('#reglages-supabase').open = !Sync.configure();
   if (role) etaitConnecte = true;
-  // Nom donné à l'inscription : repris dans les infos du garage s'il n'y est pas encore (après la synchro).
-  if (status === 'ok' && Sync.entreprise?.nom && !Param.get().garage.nom) {
-    Param.save({ garage: { ...Param.get().garage, nom: Sync.entreprise.nom } });
+  if (status === 'ok') {
+    // Nom de l'entreprise donné à la création du compte : repris dans les infos du garage.
+    if (Sync.entreprise?.nom && !Param.get().garage.nom) Param.save({ garage: { ...Param.get().garage, nom: Sync.entreprise.nom } });
+    // Compte démo vide : on le remplit avec des données d'exemple.
+    if (demo && !db.all('vehicules').length) Demo.remplir();
     if (onglet === 'donnees') render();
+    if (onglet === 'parametres') { afficherEquipe(); afficherGarages(); }
   }
   // Déconnexion : les données quittent l'appareil (elles restent en ligne).
-  if (!user && etaitConnecte) { etaitConnecte = false; db.vider(); render(); }
+  if (!user && etaitConnecte) { etaitConnecte = false; db.vider(); switchTab('donnees'); }
   afficherAuth(status, user, role);
 }
 
-// Écran de connexion : obligatoire dès que l'appli est reliée à Supabase.
+// Écran de connexion : l'appli s'ouvre dessus tant qu'on n'est pas connecté.
 function afficherAuth(status, user, role) {
   const gate = $('#auth');
-  const bloque = Sync.configure() && (!role || status === 'nouveau-mdp');
+  const config = Sync.configure();
+  // Mot de passe de départ : il faut le changer avant d'utiliser l'appli.
+  const nouveau = !!user && !!Sync.profil.doit_changer_mdp;
+  const bloque = !role || nouveau;
   gate.hidden = !bloque || (status === 'connexion' && !!user);
   document.body.classList.toggle('verrouille', bloque);
   if (!bloque) return;
-  if (status === 'nouveau-mdp') modeAuth = 'nouveau-mdp';
   const refuse = status === 'refuse';
-  const textes = {
-    connexion: ['Connecte-toi pour accéder au CRM.', 'Se connecter'],
-    creer: ["Crée le compte de ton garage : tu en seras l'admin. Invité par ton garage ? Utilise l'email qu'il a ajouté, tu rejoindras son équipe.", 'Créer mon compte'],
-    'nouveau-mdp': ['Choisis ton nouveau mot de passe (8 caractères minimum).', 'Enregistrer'],
-  };
-  $('#auth-texte').textContent = refuse
-    ? `Le compte ${user.email} n'est rattaché à aucun garage. Demande à ton admin d'ajouter cet email dans Paramètres > Équipe, puis reconnecte-toi.`
-    : status === 'erreur' && user ? 'Connexion à la base impossible. Vérifie le réseau, ou que le script supabase.sql a bien été lancé.' : textes[modeAuth][0];
-  $('#auth-ok').textContent = textes[modeAuth][1];
-  $('#auth-champ-email').hidden = refuse || modeAuth === 'nouveau-mdp';
-  $('#auth-champ-entreprise').hidden = refuse || modeAuth !== 'creer';
-  $('#auth-champ-mdp').hidden = refuse;
-  $('#auth-ok').hidden = refuse;
-  $('#auth-mdp').autocomplete = modeAuth === 'connexion' ? 'current-password' : 'new-password';
-  $('#auth-creer').hidden = refuse || modeAuth === 'nouveau-mdp';
-  $('#auth-creer').textContent = modeAuth === 'creer' ? "J'ai déjà un compte" : 'Créer mon compte';
-  $('#auth-oubli').hidden = refuse || modeAuth !== 'connexion';
+  $('#auth-texte').textContent = !config ? "L'appli n'est pas encore reliée à sa base : ouvre Réglages techniques ci-dessous."
+    : refuse ? `Le compte ${user.email} n'est rattaché à aucun garage. Contacte ton administrateur.`
+    : status === 'erreur' && user ? 'Connexion à la base impossible. Vérifie le réseau, ou que le script supabase.sql a bien été lancé.'
+    : nouveau ? 'Première connexion : choisis ton mot de passe (8 caractères minimum).'
+    : 'Connecte-toi pour accéder au CRM.';
+  $('#auth-ok').textContent = nouveau ? 'Enregistrer mon mot de passe' : 'Se connecter';
+  $('#auth-champ-email').hidden = refuse || nouveau || !config;
+  $('#auth-champ-mdp').hidden = refuse || !config;
+  $('#auth-champ-mdp2').hidden = !nouveau;
+  $('#auth-champ-rester').hidden = refuse || nouveau || !config;
+  $('#auth-ok').hidden = refuse || !config;
+  $('#auth-aide').hidden = refuse || nouveau || !config;
+  $('#auth-mdp').autocomplete = nouveau ? 'new-password' : 'current-password';
+  $('#auth-mdp').placeholder = nouveau ? 'Nouveau mot de passe' : '';
   $('#auth-sortir').hidden = !user;
+  $('#auth-config').hidden = config && !refuse;
+  $('#auth-config').open = !config;
 }
 
 $('#auth-form').addEventListener('submit', async e => {
   e.preventDefault();
-  const email = $('#auth-email').value.trim(), mdp = $('#auth-mdp').value;
+  const id = $('#auth-email').value.trim(), mdp = $('#auth-mdp').value;
   const btn = $('#auth-ok');
-  if (modeAuth !== 'nouveau-mdp' && !email) { toast('Saisis ton email.'); return; }
+  const nouveau = !!Sync.profil.doit_changer_mdp;
+  if (!nouveau && !id) { toast('Saisis ton email.'); return; }
   if (!mdp) { toast('Saisis ton mot de passe.'); return; }
+  if (nouveau && mdp !== $('#auth-mdp2').value) { toast('Les deux mots de passe ne sont pas identiques.'); return; }
   btn.disabled = true;
   try {
-    if (modeAuth === 'connexion') await Sync.connecter(email, mdp);
-    else if (modeAuth === 'creer') {
-      const nomEntreprise = $('#auth-entreprise').value.trim();
-      if (!nomEntreprise) { toast("Saisis le nom de ton entreprise."); $('#auth-entreprise').focus(); return; }
-      const confirmer = await Sync.creerCompte(email, mdp, nomEntreprise);
-      modeAuth = 'connexion';
-      if (confirmer) { afficherAuth('off'); $('#auth-texte').textContent = `Compte créé. Ouvre l'email envoyé à ${email} pour le confirmer, puis connecte-toi ici.`; }
-    } else {
-      await Sync.nouveauMotDePasse(mdp);
-      modeAuth = 'connexion';
-      toast('Mot de passe enregistré');
-    }
-    $('#auth-mdp').value = '';
+    if (nouveau) { await Sync.nouveauMotDePasse(mdp); toast('Mot de passe enregistré'); }
+    else await Sync.connecter(id, mdp, $('#auth-rester').checked);
+    $('#auth-mdp').value = ''; $('#auth-mdp2').value = '';
   } catch (err) { toast(err.message); }
   finally { btn.disabled = false; }
 });
-$('#auth-creer').addEventListener('click', () => { modeAuth = modeAuth === 'creer' ? 'connexion' : 'creer'; afficherAuth(Sync.status, Sync.user, Sync.role); });
-$('#auth-oubli').addEventListener('click', async () => {
-  const email = $('#auth-email').value.trim();
-  if (!email) { toast("Saisis d'abord ton email."); $('#auth-email').focus(); return; }
-  try { await Sync.motDePasseOublie(email); $('#auth-texte').textContent = `Email envoyé à ${email} : ouvre le lien pour choisir un nouveau mot de passe.`; }
-  catch (err) { toast(err.message); }
-});
 $('#auth-sortir').addEventListener('click', () => Sync.deconnecter());
-
-$('#btn-save-sync').addEventListener('click', () => {
-  const url = $('#set-sb-url').value.trim(), cle = $('#set-sb-cle').value.trim();
+const enregistrerConfig = (url, cle) => {
+  url = url.trim(); cle = cle.trim();
   if (url && !/^https:\/\/[a-z0-9-]+\.supabase\.co\/?$/i.test(url)) { toast("L'adresse doit ressembler à https://xxxx.supabase.co"); return; }
   Sync.saveSettings({ url: url.replace(/\/$/, ''), cle });
   toast('Réglages enregistrés, rechargement…');
   setTimeout(() => location.reload(), 800);
-});
+};
+$('#auth-sb-ok').addEventListener('click', () => enregistrerConfig($('#auth-sb-url').value, $('#auth-sb-cle').value));
+$('#btn-save-sync').addEventListener('click', () => enregistrerConfig($('#set-sb-url').value, $('#set-sb-cle').value));
 $('#btn-deconnexion').addEventListener('click', () => Sync.deconnecter());
 $('#sync-pill').addEventListener('click', () => $('#btn-menu').click());
+$('#btn-mdp-changer').addEventListener('click', async () => {
+  const m1 = $('#mdp-nouveau').value, m2 = $('#mdp-nouveau2').value;
+  if (m1 !== m2) { toast('Les deux mots de passe ne sont pas identiques.'); return; }
+  try { await Sync.nouveauMotDePasse(m1); $('#mdp-nouveau').value = ''; $('#mdp-nouveau2').value = ''; $('#changer-mdp').open = false; toast('Mot de passe changé'); }
+  catch (err) { toast(err.message); }
+});
+$('#btn-demo-reset').addEventListener('click', () => {
+  if (!confirm('Remplacer les données de démo par les données d\'exemple de départ ?')) return;
+  Demo.remplir(true);
+  switchTab('donnees');
+  toast('Démo remise à zéro');
+});
 
-// Équipe : l'admin ajoute ou retire les emails autorisés.
+// Équipe : l'admin ajoute (compte créé avec 12345678), réinitialise ou retire un collègue.
 async function afficherEquipe() {
   if (Sync.role !== 'admin') return;
   const box = $('#equipe-liste');
   try {
     const liste = await Sync.membres();
-    box.innerHTML = liste.map(m => `<div class="membre"><span>${esc(m.email)}</span>
+    box.innerHTML = liste.map(m => `<div class="membre"><span>${esc(m.email)}${m.doit_changer_mdp ? '<small>mot de passe de départ</small>' : ''}</span>
       <span class="badge ${m.role === 'admin' ? 'b-blue' : 'b-grey'}">${m.role === 'admin' ? 'Admin' : 'Vendeur'}</span>
-      ${m.email === Sync.user.email.toLowerCase() ? '<span class="hint">toi</span>' : `<button type="button" class="chip" data-retirer="${esc(m.email)}">Retirer</button>`}</div>`).join('');
+      ${m.email === Sync.user.email.toLowerCase() ? '<span class="hint">toi</span>' : `<button type="button" class="chip" data-reinit="${esc(m.email)}">Réinit. mdp</button><button type="button" class="chip" data-retirer="${esc(m.email)}">Retirer</button>`}</div>`).join('');
   } catch (err) { box.textContent = err.message; }
 }
 $('#btn-equipe-ajouter').addEventListener('click', async () => {
@@ -918,15 +924,46 @@ $('#btn-equipe-ajouter').addEventListener('click', async () => {
   try {
     await Sync.ajouterMembre(email, $('#equipe-role').value);
     $('#equipe-email').value = '';
-    toast(`${email} peut maintenant créer son compte`);
+    toast(`Compte créé : ${email} / 12345678`);
     afficherEquipe();
   } catch (err) { toast(err.message); }
 });
+async function reinitialiser(email, apres) {
+  if (!confirm(`Remettre le mot de passe de ${email} à 12345678 ?`)) return;
+  try { await Sync.reinitMdp(email); toast(`Mot de passe de ${email} : 12345678`); apres(); } catch (err) { toast(err.message); }
+}
 $('#equipe-liste').addEventListener('click', async e => {
+  if (e.target.dataset.reinit) { reinitialiser(e.target.dataset.reinit, afficherEquipe); return; }
   const email = e.target.dataset.retirer;
   if (!email || !confirm(`Retirer l'accès de ${email} ?`)) return;
   try { await Sync.retirerMembre(email); afficherEquipe(); } catch (err) { toast(err.message); }
 });
+
+// Super-admin : création des comptes des garages clients.
+async function afficherGarages() {
+  if (!Sync.profil.superadmin) return;
+  const box = $('#sa-liste');
+  try {
+    const liste = await Sync.garages();
+    box.innerHTML = liste.map(g => `<div class="sa-garage"><div class="sa-tete"><strong>${esc(g.nom)}</strong>
+        ${g.demo ? '<span class="badge b-orange">Démo</span>' : ''}<span class="hint">depuis le ${dateFr(g.cree_le)}</span></div>
+      ${(g.comptes || []).map(c => `<div class="membre"><span>${esc(c.email)}${c.doit_changer_mdp ? '<small>mot de passe de départ</small>' : ''}</span>
+        <span class="badge ${c.role === 'admin' ? 'b-blue' : 'b-grey'}">${c.role === 'admin' ? 'Admin' : 'Vendeur'}</span>
+        ${c.email === Sync.user.email.toLowerCase() ? '<span class="hint">toi</span>' : g.demo ? '' : `<button type="button" class="chip" data-sa-reinit="${esc(c.email)}">Réinit. mdp</button>`}</div>`).join('')}</div>`).join('');
+  } catch (err) { box.textContent = err.message; }
+}
+$('#btn-sa-creer').addEventListener('click', async () => {
+  const nom = $('#sa-nom').value.trim(), email = $('#sa-email').value.trim();
+  if (!nom) { toast("Saisis le nom de l'entreprise."); return; }
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { toast('Email invalide.'); return; }
+  try {
+    await Sync.creerGarage(nom, email);
+    $('#sa-nom').value = ''; $('#sa-email').value = '';
+    toast(`Compte créé : ${email} / 12345678`);
+    afficherGarages();
+  } catch (err) { toast(err.message); }
+});
+$('#sa-liste').addEventListener('click', e => { if (e.target.dataset.saReinit) reinitialiser(e.target.dataset.saReinit, afficherGarages); });
 
 // ---------- Installation (sans App Store) ----------
 let invitationInstall = null;
