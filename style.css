@@ -105,3 +105,13 @@ dialog h2 { margin: 0 0 12px; font-size: 19px; }
   opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 20; max-width: 90vw;
 }
 #toast.show { opacity: 1; }
+
+.b-purple { background: #7c3aed; }
+button.success { background: var(--green); border-color: var(--green); color: #fff; font-weight: 600; }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+#filters { margin-top: 10px; }
+#filters:empty { display: none; }
+.chip { padding: 6px 12px; border-radius: 99px; font-size: 14px; }
+.chip.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+h3.section { grid-column: 1 / -1; margin: 10px 0 0; font-size: 15px; border-top: 1px solid var(--line); padding-top: 12px; }
+.extra { display: contents; }

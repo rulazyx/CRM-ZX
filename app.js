@@ -61,7 +61,21 @@ function toast(msg) {
 const clientNom = c => c ? [c.prenom, c.nom].filter(Boolean).join(' ') || c.societe || '(sans nom)' : '(client supprimé)';
 const vehiculeNom = v => v ? [v.marque, v.modele, v.finition].filter(Boolean).join(' ') || '(véhicule sans nom)' : '(véhicule supprimé)';
 
-const STATUT_VEHICULE = { 'En stock': 'b-green', 'Réservé': 'b-orange', 'Vendu': 'b-grey', 'En préparation': 'b-blue' };
+// Parcours : Reprise à étudier → (validée) En préparation / En stock → Réservé → Vendu, ou Reprise refusée.
+const STATUT_VEHICULE = {
+  'Reprise à étudier': 'b-purple', 'Reprise refusée': 'b-red', 'En préparation': 'b-blue',
+  'En stock': 'b-green', 'Réservé': 'b-orange', 'Vendu': 'b-grey',
+};
+const REPRISE = ['Reprise à étudier', 'Reprise refusée'];
+const FILTRES_VEHICULE = {
+  'Tous': () => true,
+  'Reprises': v => v.statut === 'Reprise à étudier',
+  'Stock': v => ['En préparation', 'En stock', 'Réservé'].includes(v.statut),
+  'Vendus': v => v.statut === 'Vendu',
+  'Refusées': v => v.statut === 'Reprise refusée',
+};
+let filtreVehicule = 'Tous';
+const num = x => Number(x) || 0;
 const STATUT_COMMANDE = { 'Devis': 'b-blue', 'En cours': 'b-orange', 'Livrée': 'b-green', 'Annulée': 'b-red' };
 
 // ---------- Définition des onglets ----------
@@ -95,7 +109,7 @@ const TABS = {
   },
 
   vehicules: {
-    titre: 'véhicule', titreNouveau: 'Nouveau véhicule',
+    titre: 'véhicule', titreNouveau: 'Nouvelle reprise / nouveau véhicule',
     fields: [
       { k: '_lookup', type: 'lookup' },
       { k: 'marque', l: 'Marque', required: true },
@@ -107,19 +121,35 @@ const TABS = {
       { k: 'carburant', l: 'Carburant', type: 'select', options: ['', 'Essence', 'Diesel', 'Hybride', 'Hybride rechargeable', 'Électrique', 'GPL', 'Autre'] },
       { k: 'boite', l: 'Boîte', type: 'select', options: ['', 'Manuelle', 'Automatique'] },
       { k: 'couleur', l: 'Couleur' },
-      { k: 'prixAchat', l: "Prix d'achat (€)", type: 'number' },
+      { k: 'statut', l: 'Statut', type: 'select', options: Object.keys(STATUT_VEHICULE), def: 'Reprise à étudier' },
+      { k: '_reprise', l: 'Reprise', type: 'section' },
+      { k: 'vendeurId', l: 'Vendeur (client qui cède le véhicule)', type: 'ref', table: 'clients', full: true },
+      { k: 'etat', l: 'État général', type: 'select', options: ['', 'Très bon', 'Bon', 'Moyen', 'À rénover'] },
+      { k: 'coteEstimee', l: 'Cote estimée (€)', type: 'number' },
+      { k: '_cote', type: 'cote' },
+      { k: 'fraisEstimes', l: 'Frais de remise en état (€)', type: 'number' },
+      { k: 'prixPropose', l: 'Prix de reprise proposé (€)', type: 'number' },
+      { k: 'defauts', l: 'Défauts constatés', type: 'textarea', full: true },
+      { k: '_stock', l: 'Stock et vente', type: 'section' },
+      { k: 'prixAchat', l: "Prix d'achat final (€)", type: 'number' },
       { k: 'prixVente', l: 'Prix de vente (€)', type: 'number' },
-      { k: 'statut', l: 'Statut', type: 'select', options: Object.keys(STATUT_VEHICULE), def: 'En stock' },
-      { k: 'dateEntree', l: "Date d'entrée en stock", type: 'date', def: today },
+      { k: 'dateEntree', l: "Date d'entrée en stock", type: 'date' },
       { k: 'notes', l: 'Notes', type: 'textarea', full: true },
     ],
     search: v => [v.immatriculation, v.vin, v.marque, v.modele, v.finition, v.couleur, v.statut, v.annee],
     sort: (a, b) => (b.creeLe || '').localeCompare(a.creeLe || ''),
-    card: v => `<div class="top"><span class="title">${esc(vehiculeNom(v))}</span>
+    filter: v => FILTRES_VEHICULE[filtreVehicule](v),
+    card: v => {
+      const reprise = REPRISE.includes(v.statut);
+      const prix = reprise ? (v.prixPropose ? 'Proposé ' + euros(v.prixPropose) : '') : euros(v.prixVente);
+      const marge = !reprise && v.prixVente && v.prixAchat ? num(v.prixVente) - num(v.prixAchat) - num(v.fraisEstimes) : null;
+      return `<div class="top"><span class="title">${esc(vehiculeNom(v))}</span>
         <span class="badge ${STATUT_VEHICULE[v.statut] || 'b-grey'}">${esc(v.statut || '')}</span></div>
         <div class="sub">${esc([v.annee, km(v.kilometrage), v.carburant, v.boite].filter(Boolean).join(' · '))}</div>
+        ${reprise && v.vendeurId ? `<div class="sub">Vendeur : ${esc(clientNom(db.get('clients', v.vendeurId)))}</div>` : ''}
         <div class="top"><span>${v.immatriculation ? `<span class="plate">${esc(v.immatriculation)}</span>` : ''}</span>
-        <span class="price">${euros(v.prixVente)}</span></div>`,
+        <span class="price">${prix}${marge !== null ? `<span class="sub"> · marge ${euros(marge)}</span>` : ''}</span></div>`;
+    },
     canDelete: v => {
       const nb = db.all('commandes').filter(o => o.vehiculeId === v.id).length;
       return nb ? `Ce véhicule est dans ${nb} commande(s). Supprime d'abord la commande.` : true;
@@ -173,11 +203,18 @@ let editing = null;
 function render() {
   const tab = TABS[current];
   const q = norm($('#search').value.trim());
+  $('#filters').innerHTML = current === 'vehicules'
+    ? Object.keys(FILTRES_VEHICULE).map(f => {
+        const n = db.all('vehicules').filter(FILTRES_VEHICULE[f]).length;
+        return `<button type="button" data-filtre="${f}" class="chip${f === filtreVehicule ? ' active' : ''}">${f} (${n})</button>`;
+      }).join('')
+    : '';
   const rows = db.all(current)
+    .filter(r => !tab.filter || tab.filter(r))
     .filter(r => !q || norm(tab.search(r).join(' ')).includes(q))
     .sort(tab.sort);
   const total = db.all(current).length;
-  $('#count').textContent = q ? `${rows.length} sur ${total}` : `${total} ${tab.titre}${total > 1 ? 's' : ''}`;
+  $('#count').textContent = rows.length !== total ? `${rows.length} sur ${total}` : `${total} ${tab.titre}${total > 1 ? 's' : ''}`;
   $('#list').innerHTML = rows.length
     ? rows.map(r => `<div class="card" data-id="${r.id}">${tab.card(r)}</div>`).join('')
     : `<div class="empty">${total ? 'Aucun résultat.' : `Aucun ${tab.titre} pour l'instant.<br>Appuie sur « + Ajouter ».`}</div>`;
@@ -200,13 +237,18 @@ function fieldHtml(f, row) {
   const cls = 'field' + (f.full ? ' full' : '');
   switch (f.type) {
     case 'lookup': return lookupHtml(row);
+    case 'section': return `<h3 class="section">${esc(f.l)}</h3>`;
+    case 'cote': return `<div class="field full cote"><span class="hint">Trouver une cote (gratuit, ouvre un nouvel onglet) :</span>
+      <div class="chips"><button type="button" class="chip" data-cote="lacentrale">La Centrale</button>
+      <button type="button" class="chip" data-cote="argus">L'argus</button>
+      <button type="button" class="chip" data-cote="leboncoin">Annonces Leboncoin</button></div></div>`;
     case 'textarea': return `<div class="${cls}">${label}<textarea id="${id}" name="${f.k}">${esc(val)}</textarea></div>`;
     case 'select': return `<div class="${cls}">${label}<select id="${id}" name="${f.k}">${f.options.map(o => `<option${o === val ? ' selected' : ''}>${esc(o)}</option>`).join('')}</select></div>`;
     case 'ref': {
       let opts = db.all(f.table).slice();
       if (f.table === 'vehicules') {
         // Proposer les véhicules disponibles, plus celui déjà lié à la commande.
-        opts = opts.filter(v => v.statut !== 'Vendu' || v.id === val);
+        opts = opts.filter(v => (v.statut !== 'Vendu' && !REPRISE.includes(v.statut)) || v.id === val);
         opts.sort((a, b) => norm(vehiculeNom(a)).localeCompare(norm(vehiculeNom(b))));
       } else {
         opts.sort((a, b) => norm(clientNom(a)).localeCompare(norm(clientNom(b))));
@@ -238,12 +280,40 @@ function openForm(id) {
   $('#form-title').textContent = id ? (current === 'commandes' ? 'Commande ' + row.numero : 'Modifier le ' + tab.titre) : tab.titreNouveau;
   $('#form-body').innerHTML = `<div class="grid">${tab.fields.map(f => fieldHtml(f, row)).join('')}</div>`;
   $('#btn-delete').style.display = id ? '' : 'none';
+  $('#form-extra').innerHTML = current === 'vehicules' && (!id || row.statut === 'Reprise à étudier')
+    ? `<button type="button" id="btn-refuser" class="danger">Refuser la reprise</button>
+       <button type="button" id="btn-valider" class="success">Valider → entrer en stock</button>`
+    : '';
   if (current === 'vehicules') wireVehicule();
   if (current === 'commandes') wireCommande();
   $('#dlg').showModal();
 }
 
 function wireVehicule() {
+  $('#btn-valider')?.addEventListener('click', () => {
+    // Reprise validée : le prix proposé devient le prix d'achat, le véhicule entre en stock.
+    if (!$('#f-prixAchat').value) $('#f-prixAchat').value = $('#f-prixPropose').value;
+    if (!$('#f-dateEntree').value) $('#f-dateEntree').value = today();
+    $('#f-statut').value = num($('#f-fraisEstimes').value) > 0 ? 'En préparation' : 'En stock';
+    $('#form').requestSubmit();
+  });
+  $('#btn-refuser')?.addEventListener('click', () => {
+    $('#f-statut').value = 'Reprise refusée';
+    $('#form').requestSubmit();
+  });
+  document.querySelectorAll('[data-cote]').forEach(b => b.addEventListener('click', () => {
+    const modele = ['marque', 'modele', 'finition', 'annee'].map(k => $('#f-' + k).value.trim()).filter(Boolean).join(' ');
+    if (!modele) { toast("Remplis d'abord la marque et le modèle (ou cherche la plaque)."); return; }
+    const plaque = $('#f-immatriculation').value.trim();
+    if (plaque) navigator.clipboard?.writeText(plaque).catch(() => {});
+    const url = {
+      lacentrale: 'https://www.google.com/search?q=' + encodeURIComponent('cote La Centrale ' + modele),
+      argus: 'https://www.google.com/search?q=' + encodeURIComponent("cote L'argus " + modele),
+      leboncoin: 'https://www.leboncoin.fr/recherche?category=2&text=' + encodeURIComponent(modele),
+    }[b.dataset.cote];
+    window.open(url, '_blank', 'noopener');
+    if (plaque) toast('Plaque copiée : colle-la sur le site si elle est demandée.');
+  }));
   const plate = $('#f-immatriculation');
   plate.addEventListener('blur', () => { plate.value = formatPlaque(plate.value); });
   $('#btn-plaque').addEventListener('click', async () => {
@@ -367,6 +437,10 @@ $('#file-import').addEventListener('change', async e => {
 // ---------- Démarrage ----------
 document.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
 $('#search').addEventListener('input', render);
+$('#filters').addEventListener('click', e => {
+  const b = e.target.closest('[data-filtre]');
+  if (b) { filtreVehicule = b.dataset.filtre; render(); }
+});
 $('#btn-add').addEventListener('click', () => openForm(null));
 $('#list').addEventListener('click', e => {
   const card = e.target.closest('.card');
