@@ -21,3 +21,14 @@ Les données sont pour l'instant stockées dans le navigateur de l'appareil (`lo
 dans `app.js` pour pouvoir brancher une base en ligne (Supabase) et synchroniser téléphone et PC.
 
 Pour l'essayer en local : ouvrir `index.html` dans un navigateur.
+
+## Synchronisation PC / téléphone (Supabase)
+
+1. Créer un compte gratuit sur supabase.com puis un projet.
+2. Dans SQL Editor, coller le contenu de `supabase.sql` et cliquer sur Run.
+3. Dans Authentication > URL Configuration, mettre l'adresse de l'appli dans Site URL et Redirect URLs.
+4. Dans Project Settings > API, copier Project URL et la clé publique (anon / publishable), puis les coller dans le menu ⋯ de l'appli
+   sur chaque appareil. Se connecter avec son email (lien de connexion reçu par email).
+
+Toutes les données d'un compte sont dans une ligne JSON de la table `crm_data`, protégée par une règle d'accès (RLS).
+La modification la plus récente l'emporte.

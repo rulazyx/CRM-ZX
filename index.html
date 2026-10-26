@@ -22,6 +22,7 @@
     <button data-tab="reprises">Reprise</button>
     <button data-tab="planning">Planning</button>
   </nav>
+  <button id="sync-pill" class="sync-pill" hidden></button>
   <button id="btn-menu" class="ghost" title="Réglages et sauvegarde" aria-label="Réglages"></button>
 </header>
 
@@ -59,7 +60,20 @@
 
 <dialog id="dlg-menu">
   <form method="dialog">
-    <h2>Recherche par plaque</h2>
+    <h2>Synchronisation PC / téléphone</h2>
+    <p class="muted">Avec la synchro, tes données sont gardées en ligne et identiques sur tous tes appareils.</p>
+    <div class="stack">
+      <div class="field"><label for="set-sb-url">Adresse Supabase (Project URL)</label>
+        <input id="set-sb-url" autocomplete="off" spellcheck="false" placeholder="https://xxxx.supabase.co"></div>
+      <div class="field"><label for="set-sb-cle">Clé publique (anon / publishable key)</label>
+        <input id="set-sb-cle" type="password" autocomplete="off" spellcheck="false"></div>
+      <button type="button" id="btn-save-sync">Enregistrer</button>
+      <span class="hint" id="sync-etat"></span>
+      <div class="inline" id="sync-connexion"><input id="set-email" type="email" placeholder="ton@email.fr" autocomplete="email">
+        <button type="button" id="btn-connexion" class="primary">Recevoir le lien</button></div>
+      <button type="button" id="btn-deconnexion" hidden>Se déconnecter</button>
+    </div>
+    <h2 style="margin-top:20px">Recherche par plaque</h2>
     <p class="muted">Clé api-plaque.com (RapidAPI). Elle reste sur cet appareil et n'est envoyée qu'au service de recherche.</p>
     <div class="stack">
       <div class="field"><label for="set-cle">Clé (X-RapidAPI-Key)</label>
@@ -82,9 +96,11 @@
 
 <div id="toast"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="icons.js"></script>
 <script src="vin.js"></script>
 <script src="plaque.js"></script>
+<script src="sync.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

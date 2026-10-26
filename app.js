@@ -12,9 +12,12 @@ const db = {
       if (saved) this.data = Object.assign(this.data, saved);
     } catch (e) { /* stockage indisponible : on démarre vide */ }
   },
-  save() {
+  // `distant` : données reçues de la synchro, à ne pas renvoyer.
+  save(distant) {
+    if (!distant) this.data.majLe = new Date().toISOString();
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(this.data)); }
     catch (e) { toast("Impossible d'enregistrer sur cet appareil."); }
+    if (!distant) Sync.changed();
   },
   all(table) { return this.data[table]; },
   get(table, id) { return this.data[table].find(r => r.id === id); },
@@ -624,9 +627,43 @@ $('#btn-menu').addEventListener('click', () => {
   const s = Plaque.settings();
   $('#set-cle').value = s.cle;
   $('#set-host').value = s.host;
+  const sb = Sync.settings();
+  $('#set-sb-url').value = sb.url || '';
+  $('#set-sb-cle').value = sb.cle || '';
+  afficherSync(Sync.status, Sync.user);
   $('#set-usage').textContent = `${Plaque.usageCeMois()} recherche(s) par plaque ce mois-ci sur cet appareil (10 gratuites par mois avec l'offre Basic).`;
   $('#dlg-menu').showModal();
 });
+
+// ---------- Synchronisation ----------
+const SYNC_TEXTE = { off: 'Non connecté', connexion: 'Connexion…', ok: 'Synchronisé', envoi: 'Envoi…', erreur: 'Erreur de synchro' };
+function afficherSync(status, user) {
+  const pill = $('#sync-pill');
+  pill.hidden = !Sync.settings().url;
+  pill.className = 'sync-pill s-' + status;
+  pill.innerHTML = icon('nuage', 16) + '<span>' + SYNC_TEXTE[status] + '</span>';
+  $('#sync-etat').textContent = user ? `Connecté : ${user.email} · ${SYNC_TEXTE[status]}` : 'Non connecté.';
+  $('#sync-connexion').hidden = !!user;
+  $('#btn-deconnexion').hidden = !user;
+}
+
+$('#btn-save-sync').addEventListener('click', () => {
+  const url = $('#set-sb-url').value.trim(), cle = $('#set-sb-cle').value.trim();
+  if (url && !/^https:\/\/[a-z0-9-]+\.supabase\.co\/?$/i.test(url)) { toast("L'adresse doit ressembler à https://xxxx.supabase.co"); return; }
+  Sync.saveSettings({ url: url.replace(/\/$/, ''), cle });
+  toast('Réglages enregistrés, rechargement…');
+  setTimeout(() => location.reload(), 800);
+});
+$('#btn-connexion').addEventListener('click', async () => {
+  const email = $('#set-email').value.trim();
+  if (!email) { toast('Saisis ton email.'); return; }
+  try {
+    await Sync.connecter(email);
+    $('#sync-etat').textContent = `Lien envoyé à ${email}. Ouvre-le sur cet appareil pour te connecter.`;
+  } catch (err) { toast(err.message); }
+});
+$('#btn-deconnexion').addEventListener('click', () => Sync.deconnecter());
+$('#sync-pill').addEventListener('click', () => $('#btn-menu').click());
 
 $('#btn-save-plaque').addEventListener('click', () => {
   Plaque.saveSettings({ cle: $('#set-cle').value.trim(), host: $('#set-host').value.trim() || Plaque.DEFAULT_HOST });
@@ -697,3 +734,5 @@ document.querySelectorAll('[data-tab]').forEach(b => {
 $('#btn-menu').innerHTML = icon('reglages', 20);
 $('#search-ico').innerHTML = icon('recherche', 18);
 switchTab('clients');
+Sync.init(afficherSync);
+afficherSync(Sync.status, Sync.user);
