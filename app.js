@@ -10,6 +10,7 @@ const db = {
     try {
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
       if (saved) this.data = Object.assign(this.data, saved);
+      (this.data.planning || []).forEach(r => { if (r.type === 'Rappel client') r.type = 'Relance client'; });
     } catch (e) { /* stockage indisponible : on démarre vide */ }
   },
   // `distant` : données reçues de la synchro, à ne pas renvoyer.
@@ -47,7 +48,9 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': 
 const euros = n => (n === '' || n == null || isNaN(n)) ? '' : Number(n).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
 const km = n => (n === '' || n == null) ? '' : Number(n).toLocaleString('fr-FR') + ' km';
 const dateFr = d => d ? new Date(d).toLocaleDateString('fr-FR') : '';
-const today = () => new Date().toISOString().slice(0, 10);
+// Date du jour à l'heure locale (La Réunion est en UTC+4 : toISOString donnerait parfois la veille).
+const isoLocal = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const today = () => isoLocal(new Date());
 const norm = s => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
 function toast(msg) {
@@ -88,14 +91,18 @@ const STATUTS_REPRISE = {
 let filtreReprise = 'À étudier';
 const interessesPar = v => db.all('clients').filter(c => (c.interets || []).includes(v.id));
 const num = x => Number(x) || 0;
-const TYPES_RDV = { 'Essai': 'b-blue', 'Expertise reprise': 'b-purple', 'Livraison': 'b-green', 'Rappel client': 'b-orange', 'Rendez-vous': 'b-blue', 'Autre': 'b-grey' };
+const TYPES_RDV = { 'Essai': 'b-blue', 'Expertise reprise': 'b-purple', 'Livraison': 'b-green', 'Relance client': 'b-orange', 'Rendez-vous': 'b-blue', 'Autre': 'b-grey' };
 const FILTRES_RDV = {
+  'Semaine': () => true,
   'À venir': r => !r.fait && r.date >= today(),
   'En retard': r => !r.fait && r.date < today(),
   'Faits': r => !!r.fait,
   'Tous': () => true,
 };
-let filtreRdv = 'À venir';
+let filtreRdv = 'Semaine';
+// Lundi de la semaine affichée dans le calendrier.
+let semaine = (() => { const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() - (d.getDay() + 6) % 7); return d; })();
+const ajouterJours = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
 const STATUT_COMMANDE = { 'Devis': 'b-blue', 'En cours': 'b-orange', 'Livrée': 'b-green', 'Annulée': 'b-red' };
 
 // ---------- Définition des onglets ----------
@@ -316,6 +323,7 @@ function render() {
     .filter(r => !tab.filter || tab.filter(r))
     .filter(r => !q || norm(tab.search(r).join(' ')).includes(q))
     .sort(tab.sort);
+  if (onglet === 'planning' && filtreRdv === 'Semaine') { renderSemaine(rows); return; }
   const total = db.all(current).length;
   const n = rows.length;
   const titre = { stock: 'véhicule', reprises: 'reprise', planning: 'rendez-vous' }[onglet] || tab.titre;
@@ -326,7 +334,7 @@ function render() {
     commandes: ['Aucune commande', 'Une commande relie un client à un véhicule du stock.'],
     stock: ['Aucun véhicule ici', 'Les véhicules entrent en stock quand tu valides une reprise.'],
     reprises: ['Aucune reprise ici', 'Tape la plaque dans « + Nouvelle reprise » : la fiche se remplit toute seule.'],
-    planning: ['Rien de prévu', 'Ajoute un essai, une expertise, une livraison ou un rappel.'],
+    planning: ['Rien de prévu', 'Ajoute un essai, une expertise, une livraison ou une relance.'],
   }[onglet];
   const [t1, t2] = total && (q2 || tab.filter) ? ['Aucun résultat', 'Essaie une autre recherche ou d\'autres filtres.'] : vide;
   $('#list').innerHTML = n
@@ -336,6 +344,38 @@ function render() {
 
 const sigFiltres = () => onglet + JSON.stringify(filtresStock) + filtreReprise + filtreRdv
   + db.all('vehicules').map(v => v.statut + v.couleur).join() + db.all('planning').map(r => r.date + r.fait).join();
+
+// Calendrier de la semaine : un clic sur un jour ajoute un évènement à cette date.
+function renderSemaine(rows) {
+  const jours = [...Array(7)].map((_, i) => ajouterJours(semaine, i));
+  const fin = jours[6];
+  const fmt = (d, o) => d.toLocaleDateString('fr-FR', o);
+  const titre = semaine.getMonth() === fin.getMonth()
+    ? `${semaine.getDate()} – ${fmt(fin, { day: 'numeric', month: 'long', year: 'numeric' })}`
+    : `${fmt(semaine, { day: 'numeric', month: 'short' })} – ${fmt(fin, { day: 'numeric', month: 'short', year: 'numeric' })}`;
+  const auj = today();
+  const nb = rows.filter(r => r.date >= isoLocal(semaine) && r.date <= isoLocal(fin)).length;
+  $('#count').textContent = `${nb} évènement${nb > 1 ? 's' : ''} cette semaine`;
+  $('#list').innerHTML = `<div class="semaine">
+    <div class="semaine-nav">
+      <button type="button" class="chip" data-sem="-1" aria-label="Semaine précédente">‹</button>
+      <strong>${titre}</strong>
+      <button type="button" class="chip" data-sem="1" aria-label="Semaine suivante">›</button>
+      <button type="button" class="chip" data-sem="0">Aujourd'hui</button>
+    </div>
+    <div class="jours">${jours.map(d => {
+      const iso = isoLocal(d);
+      const evts = rows.filter(r => r.date === iso).sort((a, b) => (a.heure || '99').localeCompare(b.heure || '99'));
+      return `<div class="jour${iso === auj ? ' today' : ''}${iso < auj ? ' passe' : ''}" data-jour="${iso}">
+        <div class="jour-tete"><span>${fmt(d, { weekday: 'short' })}</span><strong>${d.getDate()}</strong></div>
+        <div class="jour-evts">${evts.map(r => {
+          const c = db.get('clients', r.clientId), v = db.get('vehicules', r.vehiculeId);
+          return `<div class="evt ${TYPES_RDV[r.type] || 'b-grey'}${r.fait ? ' fait' : ''}" data-id="${r.id}">
+            <span class="evt-h">${esc(r.heure || '')}</span> <span class="evt-t">${esc(r.type)}</span>
+            <span class="evt-s">${esc([c && clientNom(c), v && vehiculeNom(v)].filter(Boolean).join(' · '))}</span></div>`;
+        }).join('')}<span class="jour-add">+ Ajouter</span></div></div>`;
+    }).join('')}</div></div>`;
+}
 
 // Sous-onglets et filtres de l'onglet Véhicules (reconstruits seulement quand nécessaire, pour garder le focus).
 function renderFiltres() {
@@ -352,7 +392,7 @@ function renderFiltres() {
   let html = '';
   if (onglet === 'planning') {
     html = `<div class="chips">${Object.keys(FILTRES_RDV).map(f =>
-      `<button type="button" data-rdv="${f}" class="chip${f === filtreRdv ? ' active' : ''}">${f} (${db.all('planning').filter(FILTRES_RDV[f]).length})</button>`).join('')}</div>`;
+      `<button type="button" data-rdv="${f}" class="chip${f === filtreRdv ? ' active' : ''}">${f}${f === 'Semaine' ? '' : ` (${db.all('planning').filter(FILTRES_RDV[f]).length})`}</button>`).join('')}</div>`;
   } else if (vueVehicule === 'reprises') {
     html += `<div class="chips">${Object.keys(STATUTS_REPRISE).map(f =>
       `<button type="button" data-reprise="${f}" class="chip${f === filtreReprise ? ' active' : ''}">${f} (${all.filter(STATUTS_REPRISE[f]).length})</button>`).join('')}</div>`;
@@ -722,6 +762,18 @@ $('#filters').addEventListener('input', e => {
 });
 $('#btn-add').addEventListener('click', () => openForm(null));
 $('#list').addEventListener('click', e => {
+  const sem = e.target.closest('[data-sem]');
+  if (sem) {
+    const n = Number(sem.dataset.sem);
+    if (n) semaine = ajouterJours(semaine, 7 * n);
+    else { const d = new Date(); d.setHours(12, 0, 0, 0); semaine = ajouterJours(d, -((d.getDay() + 6) % 7)); }
+    render();
+    return;
+  }
+  const evt = e.target.closest('.evt');
+  if (evt) { openForm(evt.dataset.id); return; }
+  const jour = e.target.closest('[data-jour]');
+  if (jour) { openForm(null, { date: jour.dataset.jour }); return; }
   const card = e.target.closest('.card');
   if (card) openForm(card.dataset.id);
 });

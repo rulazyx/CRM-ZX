@@ -251,3 +251,42 @@ details.fiche dd { margin: 0; word-break: break-word; }
 /* Pas de zoom : double-tap désactivé, et champs en 16 px pour éviter le zoom automatique d'iOS. */
 html { touch-action: manipulation; -webkit-text-size-adjust: 100%; }
 @media (max-width: 899px) { input, select, textarea { font-size: 16px !important; } }
+
+/* ---------- Calendrier de la semaine ---------- */
+.semaine { grid-column: 1 / -1; display: grid; gap: 12px; }
+.semaine-nav { display: flex; align-items: center; gap: 8px; }
+.semaine-nav strong { flex: 1; text-align: center; font-size: 16px; text-transform: capitalize; }
+.semaine-nav .chip { min-width: 40px; font-size: 16px; padding: 6px 12px; }
+.semaine-nav [data-sem="0"] { font-size: 13.5px; }
+.jours { display: grid; gap: 8px; }
+.jour {
+  display: flex; gap: 12px; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 10px 12px; cursor: pointer; box-shadow: var(--shadow); min-height: 62px; transition: border-color .15s;
+}
+.jour:hover { border-color: color-mix(in srgb, var(--primary) 45%, var(--line)); }
+.jour.passe { opacity: .7; }
+.jour-tete {
+  flex: none; width: 44px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--muted);
+}
+.jour-tete strong { font-size: 20px; color: var(--text); line-height: 1.1; }
+.jour.today .jour-tete { background: var(--primary); color: #fff; border-radius: 10px; }
+.jour.today .jour-tete strong { color: #fff; }
+.jour-evts { flex: 1; min-width: 0; display: grid; gap: 5px; align-content: center; }
+.evt { border-radius: 8px; padding: 5px 9px; font-size: 13px; line-height: 1.3; border-left: 3px solid currentColor; }
+.evt.fait { opacity: .5; text-decoration: line-through; }
+.evt-h { font-weight: 700; }
+.evt-t { font-weight: 600; }
+.evt-s { display: block; color: var(--text); opacity: .75; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.jour-add { font-size: 12.5px; color: var(--muted); opacity: .75; transition: opacity .15s; }
+@media (hover: hover) {
+  .evt + .jour-add { opacity: 0; }
+  .jour:hover .jour-add { opacity: 1; }
+}
+@media (min-width: 900px) {
+  .jours { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+  .jour { flex-direction: column; min-height: 320px; padding: 10px 8px; }
+  .jour-tete { width: auto; flex-direction: row; gap: 6px; padding: 4px 0; }
+  .jour.today .jour-tete { padding: 4px 6px; }
+  .jour-evts { align-content: start; }
+}
