@@ -103,12 +103,7 @@ const Sync = (() => {
     try { ({ error } = await client.auth.signInWithPassword({ email, password: motDePasse })); }
     catch (e) { throw horsLigne(); }
     if (!error) return;
-    if (/invalid login/i.test(error.message)) {
-      // Compte inexistant ou mot de passe erroné (si la base sait répondre, sinon message commun).
-      const { data: existe, error: e2 } = await client.rpc('crm_compte_existe', { p_email: email });
-      if (e2 || existe === null || existe === undefined) throw new Error('Email ou mot de passe incorrect.');
-      throw new Error(existe ? 'Mot de passe erroné.' : 'Compte inexistant : vérifie l\'email, ou demande à ton administrateur de créer ton compte.');
-    }
+    if (/invalid login/i.test(error.message)) throw new Error('Mot de passe erroné.');
     if (/fetch|network|load failed/i.test(error.message) || error.status === 0) throw horsLigne();
     if (/database error/i.test(error.message)) throw new Error('Erreur de la base au moment de la connexion. Préviens ton administrateur (' + error.message + ').');
     throw new Error(error.message);

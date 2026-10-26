@@ -83,7 +83,7 @@ revoke execute on function public.crm__utilisateur(text, text) from public, anon
 create or replace function public.crm_est_superadmin() returns boolean
 language sql stable security definer set search_path = public as $$
   select lower(auth.jwt() ->> 'email') not like '%@demo.crmzx.re'
-    and exists (select 1 from public.crm_superadmins where email = lower(auth.jwt() ->> 'email'));
+    and exists (select 1 from public.crm_superadmins where lower(trim(email)) = lower(auth.jwt() ->> 'email'));
 $$;
 
 -- Appelée par l'appli à la connexion : renvoie le rôle, l'entreprise, et s'il faut changer le mot de passe.
@@ -96,7 +96,7 @@ declare
   eid uuid;
 begin
   if auth.uid() is null then return null; end if;
-  select * into m from public.crm_membres where email = e;
+  select * into m from public.crm_membres where lower(email) = e;
   if m.email is null and public.crm_est_superadmin() then
     insert into public.crm_entreprises (nom)
       values (coalesce(nullif(trim(auth.jwt() -> 'user_metadata' ->> 'entreprise'), ''), 'Mon garage')) returning id into eid;
@@ -109,13 +109,7 @@ begin
     'demo', (select demo from public.crm_entreprises where id = m.entreprise_id));
 end $$;
 
--- Écran de connexion : dit si un compte existe, pour distinguer « compte inexistant » de « mot de passe erroné ».
--- (Choix d'Anthony : cela permet aussi à n'importe qui de tester si un email a un compte.)
-create or replace function public.crm_compte_existe(p_email text) returns boolean
-language sql stable security definer set search_path = public, auth as $$
-  select exists (select 1 from auth.users where lower(email) = lower(trim(p_email)));
-$$;
-grant execute on function public.crm_compte_existe(text) to anon, authenticated;
+drop function if exists public.crm_compte_existe(text);
 
 -- Après le changement de mot de passe.
 create or replace function public.crm_mdp_change() returns void

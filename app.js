@@ -834,6 +834,18 @@ function afficherSync(status, user, role) {
   // Déconnexion : les données quittent l'appareil (elles restent en ligne).
   if (!user && etaitConnecte) { etaitConnecte = false; db.vider(); switchTab('donnees'); }
   afficherAuth(status, user, role);
+  if (!['connexion', 'envoi'].includes(status)) chargement(false);
+}
+
+// Transition après la connexion : l'écran de lancement (barre de chargement) jusqu'à l'arrivée des données.
+let chargementDepuis = 0;
+function chargement(oui) {
+  const s = $('#splash');
+  if (oui) { chargementDepuis = Date.now(); s.classList.remove('fin'); setTimeout(() => chargement(false), 8000); return; }
+  if (!chargementDepuis) return;
+  const reste = Math.max(0, 900 - (Date.now() - chargementDepuis));
+  chargementDepuis = 0;
+  setTimeout(() => s.classList.add('fin'), reste);
 }
 
 // Écran de connexion : l'appli s'ouvre dessus tant qu'on n'est pas connecté.
@@ -848,7 +860,7 @@ function afficherAuth(status, user, role) {
   if (!bloque) return;
   const refuse = status === 'refuse';
   $('#auth-texte').textContent = !config ? "L'appli n'est pas encore reliée à sa base : ouvre Réglages techniques ci-dessous."
-    : refuse ? `Le compte ${user.email} n'est rattaché à aucun garage. Contacte ton administrateur. (Administrateur : relance le script supabase.sql avec exactement cet email à la place de TON_EMAIL_ICI, puis reconnecte-toi.)`
+    : refuse ? `Le compte ${user.email} n'est rattaché à aucun garage. Contacte ton administrateur. (Administrateur : cet email doit figurer dans la liste des super-admins, voir le guide de mise en route.)`
     : status === 'erreur' && user ? 'Connexion à la base impossible. Vérifie le réseau, ou que le script supabase.sql a bien été lancé.'
     : nouveau ? 'Première connexion : choisis ton mot de passe (8 caractères minimum).'
     : 'Connecte-toi pour accéder au CRM.';
@@ -879,7 +891,7 @@ $('#auth-form').addEventListener('submit', async e => {
   erreurAuth('');
   try {
     if (nouveau) { await Sync.nouveauMotDePasse(mdp); toast('Mot de passe enregistré'); }
-    else await Sync.connecter(id, mdp, $('#auth-rester').checked);
+    else { await Sync.connecter(id, mdp, $('#auth-rester').checked); chargement(true); }
     $('#auth-mdp').value = ''; $('#auth-mdp2').value = '';
   } catch (err) { erreurAuth(err.message); }
   finally { btn.disabled = false; btn.textContent = Sync.profil.doit_changer_mdp ? 'Enregistrer mon mot de passe' : 'Se connecter'; }
@@ -1134,12 +1146,8 @@ $('#dlg-photos').addEventListener('close', () => {
   if (g && $('#dlg').open) Photos.galerie(g, db.get('vehicules', editing.id));
 });
 // Écran de lancement : court (environ 1 s), puis fondu vers l'appli.
-setTimeout(() => {
-  const splash = $('#splash');
-  splash.classList.add('fin');
-  splash.addEventListener('transitionend', () => splash.remove(), { once: true });
-  setTimeout(() => splash.remove(), 800);
-}, 900);
+// Il reste dans la page (caché) pour servir de transition à la connexion.
+setTimeout(() => { if (!chargementDepuis) $('#splash').classList.add('fin'); }, 900);
 Sync.init(afficherSync);
 afficherSync(Sync.status, Sync.user, Sync.role);
 majInstall();
