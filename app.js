@@ -49,6 +49,9 @@ const norm = s => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLow
 
 function toast(msg) {
   const t = $('#toast');
+  // Une fenêtre ouverte passe au-dessus de tout : le message doit être dedans pour rester visible.
+  const open = [...document.querySelectorAll('dialog[open]')].pop();
+  (open || document.body).appendChild(t);
   t.textContent = msg;
   t.classList.add('show');
   clearTimeout(toast.timer);
@@ -329,6 +332,7 @@ $('#btn-menu').addEventListener('click', () => {
 
 $('#btn-save-plaque').addEventListener('click', () => {
   Plaque.saveSettings({ cle: $('#set-cle').value.trim(), host: $('#set-host').value.trim() || Plaque.DEFAULT_HOST });
+  $('#set-usage').textContent = 'Clé enregistrée sur cet appareil.';
   toast('Clé enregistrée sur cet appareil');
 });
 
