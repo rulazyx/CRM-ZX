@@ -111,6 +111,29 @@ const STATUTS_REPRISE = {
 let filtreReprise = 'À étudier';
 const interessesPar = v => db.all('clients').filter(c => (c.interets || []).includes(v.id));
 const num = x => Number(x) || 0;
+// Recherche d'un client (marque, budget, km…) : alerte quand une reprise ou un véhicule du stock correspond.
+const RECHERCHE = ['rechMarque', 'rechModele', 'rechBudget', 'rechKmMax', 'rechAnneeMin', 'rechCarburant', 'rechBoite'];
+const aUneRecherche = c => RECHERCHE.some(k => c[k]);
+function correspond(c, v) {
+  if (!aUneRecherche(c) || !(DISPONIBLE.includes(v.statut) || v.statut === 'Reprise à étudier')) return false;
+  const reprise = v.statut === 'Reprise à étudier';
+  return (!c.rechMarque || norm(v.marque).includes(norm(c.rechMarque)))
+    && (!c.rechModele || norm([v.modele, v.finition].join(' ')).includes(norm(c.rechModele)))
+    && (!c.rechBudget || reprise || !v.prixVente || num(v.prixVente) <= num(c.rechBudget))
+    && (!c.rechKmMax || !v.kilometrage || num(v.kilometrage) <= num(c.rechKmMax))
+    && (!c.rechAnneeMin || !v.annee || num(v.annee) >= num(c.rechAnneeMin))
+    && (!c.rechCarburant || v.carburant === c.rechCarburant)
+    && (!c.rechBoite || v.boite === c.rechBoite);
+}
+const clientsQuiCherchent = v => db.all('clients').filter(c => correspond(c, v));
+const vehiculesPour = c => db.all('vehicules').filter(v => correspond(c, v));
+const resumeRecherche = c => [[c.rechMarque, c.rechModele].filter(Boolean).join(' '), c.rechCarburant, c.rechBoite,
+  c.rechAnneeMin && 'depuis ' + c.rechAnneeMin, c.rechKmMax && 'moins de ' + km(c.rechKmMax), c.rechBudget && euros(c.rechBudget) + ' max'].filter(Boolean).join(' · ');
+const messageRecherche = (c, v) => `Bonjour ${c.prenom || clientNom(c)}, ${Param.get().garage.nom ? 'ici ' + Param.get().garage.nom + '. ' : ''}Nous avons un véhicule qui correspond à votre recherche : ${vehiculeNom(v)}${v.annee ? ' de ' + v.annee : ''}${v.kilometrage ? ', ' + km(v.kilometrage) : ''}. Voulez-vous plus d'informations ?`;
+function alerteRecherche(v) {
+  const cs = clientsQuiCherchent(v);
+  if (cs.length) toast(`🔎 ${cs.length} client(s) cherchent ce véhicule : ${cs.map(clientNom).join(', ')}`);
+}
 const TYPES_RDV = { 'Essai': 'b-blue', 'Expertise reprise': 'b-purple', 'Vente / livraison': 'b-green', 'Relance client': 'b-orange', 'Rendez-vous': 'b-blue', 'Autre': 'b-grey' };
 const FILTRES_RDV = {
   'Semaine': () => true,
@@ -159,6 +182,15 @@ const TABS = {
       { k: '_projet', l: 'Projet du client', type: 'section' },
       { k: 'interets', l: 'Véhicules en stock qui l\'intéressent', type: 'interets', full: true },
       { k: 'repriseId', l: 'Sa reprise', type: 'reprise', full: true },
+      { k: '_recherche', l: "Ce qu'il recherche", type: 'section' },
+      { k: 'rechMarque', l: 'Marque' },
+      { k: 'rechModele', l: 'Modèle' },
+      { k: 'rechBudget', l: 'Budget max (€)', type: 'number' },
+      { k: 'rechKmMax', l: 'Kilométrage max', type: 'number' },
+      { k: 'rechAnneeMin', l: 'Année min', type: 'number' },
+      { k: 'rechCarburant', l: 'Carburant', type: 'select', options: ['', 'Essence', 'Diesel', 'Hybride', 'Hybride rechargeable', 'Électrique', 'GPL'] },
+      { k: 'rechBoite', l: 'Boîte', type: 'select', options: ['', 'Manuelle', 'Automatique'] },
+      { k: '_correspond', type: 'correspond' },
     ],
     search: c => [c.prenom, c.nom, c.telephone, c.email, c.ville, c.societe],
     sort: (a, b) => norm(a.nom).localeCompare(norm(b.nom)),
@@ -173,7 +205,8 @@ const TABS = {
         <div class="sub">${esc([c.telephone, c.email].filter(Boolean).join(' · '))}</div>
         <div class="sub">${esc([c.ville, c.societe].filter(Boolean).join(' · '))}</div>
         ${interets.length ? `<div class="sub">★ Intéressé par : ${esc(interets.map(vehiculeNom).join(', '))}</div>` : ''}
-        ${reprise ? `<div class="sub">↺ Reprise : ${esc(vehiculeNom(reprise))}</div>` : ''}`;
+        ${reprise ? `<div class="sub">↺ Reprise : ${esc(vehiculeNom(reprise))}</div>` : ''}
+        ${aUneRecherche(c) ? `<div class="sub">🔎 Cherche : ${esc(resumeRecherche(c))}${vehiculesPour(c).length ? ` · <b class="ok">${vehiculesPour(c).length} véhicule(s) correspondent</b>` : ''}</div>` : ''}`;
     },
     canDelete: c => {
       const nb = db.all('commandes').filter(o => o.clientId === c.id).length;
@@ -235,6 +268,7 @@ const TABS = {
       { k: 'dateEntree', l: "Date d'entrée en stock", type: 'date' },
       { k: '_photos', type: 'photos' },
       { k: '_interesses', type: 'interesses' },
+      { k: '_cherchent', type: 'cherchent' },
       { k: '_papiers', type: 'papiers' },
       { k: 'notes', l: 'Notes', type: 'textarea', full: true },
     ],
@@ -253,13 +287,15 @@ const TABS = {
     card: v => {
       const reprise = REPRISE.includes(v.statut);
       const prix = reprise ? (v.prixPropose ? 'Proposé ' + euros(v.prixPropose) : '') : euros(v.prixVente);
-      const marge = !reprise && v.prixVente && v.prixAchat ? num(v.prixVente) - num(v.prixAchat) - num(v.fraisEstimes) : null;
+      const marge = !reprise && v.prixVente && v.prixAchat ? num(v.prixVente) - num(v.prixAchat) - Prepa.frais(v) : null;
       return `${v.image ? `<div class="thumb"><img src="${esc(v.image)}" alt="" loading="lazy" onerror="this.parentNode.remove()"></div>` : ''}
         <div class="top"><span class="title">${esc(vehiculeNom(v))}</span>
         <span class="badge ${STATUT_VEHICULE[v.statut] || 'b-grey'}">${esc(v.statut || '')}</span></div>
         <div class="sub">${esc([v.annee, km(v.kilometrage), v.carburant, v.boite, v.type, v.couleur].filter(Boolean).join(' · '))}</div>
         ${(v.photos || []).length ? `<div class="sub">📷 ${v.photos.length} photo(s)</div>` : Photos.deblocable(v) ? '<div class="sub">📷 Photos à prendre</div>' : ''}
+        ${v.statut === 'En préparation' ? `<div class="sub">🔧 Préparation ${v.prepa ? Prepa.avancement(v) + ' · frais ' + (euros(Prepa.fraisReels(v)) || '0 €') : 'à commencer'}</div>` : ''}
         ${!reprise && interessesPar(v).length ? `<div class="sub">★ ${interessesPar(v).length} client(s) intéressé(s)</div>` : ''}
+        ${clientsQuiCherchent(v).length ? `<div class="sub">🔎 ${clientsQuiCherchent(v).length} client(s) cherchent ce véhicule</div>` : ''}
         ${reprise && v.vendeurId ? `<div class="sub">Vendeur : ${esc(clientNom(db.get('clients', v.vendeurId)))}</div>` : ''}
         <div class="top"><span>${v.immatriculation ? `<span class="plate">${esc(v.immatriculation)}</span>` : ''}</span>
         <span class="price">${prix}${marge !== null ? `<span class="sub"> · marge ${euros(marge)}</span>` : ''}</span></div>`;
@@ -285,6 +321,7 @@ const TABS = {
       { k: 'paiement', l: 'Mode de paiement', type: 'select', options: ['', 'Comptant', 'Virement', 'Chèque', 'Financement / crédit', 'Reprise + soulte'] },
       { k: 'dateLivraison', l: 'Livraison prévue', type: 'date' },
       { k: 'notes', l: 'Notes', type: 'textarea', full: true },
+      { k: '_ventes', type: 'docsVente' },
     ],
     filter: o => VUES_COMMANDE[vueCommande](o),
     search: o => [o.numero, clientNom(db.get('clients', o.clientId)), vehiculeNom(db.get('vehicules', o.vehiculeId)),
@@ -477,6 +514,7 @@ function renderFiltres() {
     const n = v => cmd.filter(VUES_COMMANDE[v]).length;
     html = `<div class="segmented">${['Offres', 'Commandes', 'Livraisons'].map(v =>
       `<button type="button" data-vuecmd="${v}" class="${v === vueCommande ? 'active' : ''}">${v} (${n(v)})</button>`).join('')}</div>
+      ${vueCommande === 'Livraisons' ? '<div class="chips"><button type="button" id="btn-export-fac" class="chip">Exporter les factures (comptable)</button></div>' : ''}
       ${n('Annulées') ? `<div class="chips"><button type="button" data-vuecmd="Annulées" class="chip${vueCommande === 'Annulées' ? ' active' : ''}">Annulées (${n('Annulées')})</button></div>` : ''}`;
   } else if (onglet === 'planning') {
     html = `<div class="chips">${Object.keys(FILTRES_RDV).map(f =>
@@ -562,6 +600,19 @@ function fieldHtml(f, row) {
       return cs.length ? `<div class="field full"><label>Clients intéressés</label><span>${esc(cs.map(clientNom).join(', '))}</span></div>` : '';
     }
     case 'papiers': return Papiers.section(row);
+    case 'docsVente': return Facture.section(row);
+    case 'correspond': {
+      if (!row.id || !aUneRecherche(row)) return '';
+      const vs = vehiculesPour(row);
+      return `<div class="field full"><label>Véhicules qui correspondent (${vs.length})</label>${vs.length
+        ? vs.map(v => `<span>${esc(vehiculeNom(v))}<span class="hint"> ${esc([v.annee, km(v.kilometrage), euros(v.prixVente), v.statut].filter(Boolean).join(' · '))}</span></span>`).join('')
+        : '<span class="hint">Aucun pour l\'instant : ZX te préviendra quand une reprise ou un véhicule correspondra.</span>'}</div>`;
+    }
+    case 'cherchent': {
+      const cs = row.id ? clientsQuiCherchent(row) : [];
+      return cs.length ? `<div class="field full"><label>🔎 Clients qui cherchent ce véhicule</label>${cs.map(c => `<span class="cherche">${esc(clientNom(c))}
+        <span class="hint">${esc(resumeRecherche(c))}</span>${c.telephone ? ` <a class="wa" href="${esc(Papiers.lienWhatsapp(c, messageRecherche(c, row)))}" target="_blank" rel="noopener" aria-label="WhatsApp">${icon('whatsapp', 16)}</a>` : ''}</span>`).join('')}</div>` : '';
+    }
     case 'cote': return `<div class="field full cote"><span class="hint">Trouver une cote (gratuit, ouvre un nouvel onglet) :</span>
       <div class="chips"><button type="button" class="chip" data-cote="lacentrale">La Centrale</button>
       <button type="button" class="chip" data-cote="argus">L'argus</button>
@@ -626,7 +677,7 @@ function openForm(id, preset = {}) {
     ? `<button type="button" id="btn-refuser" class="danger">Refuser la reprise</button>
        <button type="button" id="btn-valider" class="success">Valider → entrer en stock</button>`
     : current === 'vehicules' && id && row.statut === 'En préparation'
-    ? `<button type="button" id="btn-pret" class="success">Prêt → en stock</button>`
+    ? `<button type="button" id="btn-prepa" class="primary">🔧 Préparation${row.prepa ? ' ' + Prepa.avancement(row) : ''}</button><button type="button" id="btn-pret" class="success">Prêt → en stock</button>`
     : current === 'clients' && id && row.telephone
     ? `<a class="button wa-btn" href="${esc(Papiers.lienWhatsapp(row))}" target="_blank" rel="noopener">${icon('whatsapp', 18)} WhatsApp</a>`
     : current === 'commandes' && id && ETAPE_SUIVANTE[row.statut]
@@ -645,6 +696,7 @@ function wireVehicule() {
   const galerie = $('#galerie-photos');
   if (galerie) Photos.galerie(galerie, db.get('vehicules', editing.id));
   $('#btn-photos')?.addEventListener('click', () => Photos.ouvrir(editing.id));
+  $('#btn-prepa')?.addEventListener('click', () => Prepa.ouvrir(editing.id));
   $('#btn-pret')?.addEventListener('click', () => {
     $('#f-statut').value = 'En stock';
     if (!$('#f-dateEntree').value) $('#f-dateEntree').value = today();
@@ -1093,6 +1145,7 @@ $('#filters').addEventListener('click', e => {
   else if (b.dataset.vuestock) vueStock = b.dataset.vuestock;
   else if (b.dataset.reprise) filtreReprise = b.dataset.reprise;
   else if (b.id === 'btn-police') { Papiers.ouvrirPolice(); return; }
+  else if (b.id === 'btn-export-fac') { Facture.exporter(); return; }
   else if (b.id === 'btn-reset-filtres') Object.assign(filtresStock, { couleur: '', type: '', anneeMin: '', anneeMax: '', kmMax: '' });
   else return;
   render();
@@ -1166,6 +1219,8 @@ Reprise.init();
 Photos.init();
 Param.init();
 Papiers.init();
+Facture.init();
+Prepa.init();
 Import.init();
 let redim = null;
 window.addEventListener('resize', () => { clearTimeout(redim); if (onglet === 'donnees') redim = setTimeout(render, 150); });

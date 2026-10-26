@@ -551,3 +551,19 @@ a.button.wa-btn { display: inline-flex; align-items: center; gap: 6px; backgroun
 .ancien.origine { cursor: default; }
 .ancien.origine:hover { background: none; }
 .ancien.origine.inconnue .an-nom { color: var(--muted); }
+.pile { display: grid; gap: 16px; align-content: start; min-width: 0; }
+.sub b.ok { color: var(--green); }
+.cherche { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.cherche .wa { width: 26px; height: 26px; }
+.prepa-tete { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.prepa-tete div { background: color-mix(in srgb, var(--primary) 7%, var(--card)); border-radius: 12px; padding: 10px 12px; display: grid; }
+.prepa-tete strong { font-size: 22px; }
+.prepa-tete span { color: var(--muted); font-size: 12.5px; }
+.prepa-barre { height: 8px; border-radius: 99px; background: color-mix(in srgb, var(--line) 70%, transparent); overflow: hidden; }
+.prepa-barre span { display: block; height: 100%; background: var(--green); transition: width .25s; }
+.prepa-liste { display: grid; gap: 6px; }
+.prepa-point { display: grid; grid-template-columns: minmax(0, 1fr) 120px auto; align-items: center; gap: 8px; padding: 4px 6px 4px 2px; border: 1px solid var(--line); border-radius: 12px; }
+.prepa-point.fait { background: color-mix(in srgb, var(--green) 7%, var(--card)); border-color: color-mix(in srgb, var(--green) 35%, var(--line)); }
+.prepa-point.fait .check span { text-decoration: line-through; color: var(--muted); }
+.prepa-point .check { align-items: center; padding: 10px 6px; }
+.prepa-point .check input { width: 22px; height: 22px; margin: 0; }

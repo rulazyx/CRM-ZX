@@ -10,6 +10,8 @@ const Param = (() => {
     // Barème carte grise de La Réunion 2026 : 60 €/CV, taxe fixe 11 €, acheminement 2,76 €.
     carteGrise: { prixCV: 60, taxeFixe: 11, acheminement: 2.76 },
     reprise: { hausseReunion: 10, margeMin: 10, margeMax: 20 },
+    // Facturation : TVA sur la marge par défaut (véhicules achetés à des particuliers).
+    facture: { regime: 'marge', conditions: '' },
     documents: [],
   };
   const TYPES_DOC = ['RIB', 'Kbis', 'Assurance', 'Conditions de vente', 'Autre'];
@@ -37,6 +39,7 @@ const Param = (() => {
       garage: { ...DEFAUTS.garage, ...(p.garage || {}) },
       carteGrise: { ...DEFAUTS.carteGrise, ...(p.carteGrise || {}) },
       reprise: { ...DEFAUTS.reprise, ...(p.reprise || {}) },
+      facture: { ...DEFAUTS.facture, ...(p.facture || {}) },
       packs: p.packs || DEFAUTS.packs,
       documents: p.documents || [],
     };
@@ -76,6 +79,8 @@ const Param = (() => {
     $('#set-hausse').value = p.reprise.hausseReunion;
     $('#set-marge-min').value = p.reprise.margeMin;
     $('#set-marge-max').value = p.reprise.margeMax;
+    $('#fac-regime').innerHTML = Object.entries(Facture.REGIMES).map(([k, l]) => `<option value="${k}"${k === p.facture.regime ? ' selected' : ''}>${l}</option>`).join('');
+    $('#fac-conditions').value = p.facture.conditions;
     $('#doc-type').innerHTML = TYPES_DOC.map(t => `<option>${t}</option>`).join('');
     rendreDocuments(p.documents);
   }
@@ -149,6 +154,12 @@ const Param = (() => {
       save({ reprise: { hausseReunion: num($('#set-hausse').value), margeMin: Math.min(min, max), margeMax: Math.max(min, max) } });
       toast('Réglages de reprise enregistrés');
     });
+
+    $('#btn-save-facture').addEventListener('click', () => {
+      save({ facture: { regime: $('#fac-regime').value, conditions: $('#fac-conditions').value.trim() } });
+      toast('Réglages de facturation enregistrés');
+    });
+    $('#btn-export-factures').addEventListener('click', () => Facture.exporter());
 
     // Documents : rangés dans le dossier privé de l'entreprise.
     $('#doc-input').addEventListener('change', async e => {

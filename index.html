@@ -104,6 +104,15 @@
     <div class="p-actions"><span class="spacer"></span><button type="button" id="btn-save-cg" class="primary">Enregistrer</button></div>
   </section>
   <section class="panneau">
+    <h2>Facturation</h2>
+    <p class="muted">Régime de TVA proposé sur chaque facture (modifiable vente par vente). À La Réunion, le taux normal est de 8,5 %.</p>
+    <div class="field"><label for="fac-regime">Régime de TVA par défaut</label><select id="fac-regime"></select></div>
+    <div class="field" style="margin-top:10px"><label for="fac-conditions">Mentions ajoutées au bon de commande et à la facture</label>
+      <textarea id="fac-conditions" placeholder="ex. Garantie 3 mois pièces et main-d'œuvre. Forme juridique et capital (SARL au capital de …)."></textarea></div>
+    <div class="p-actions"><button type="button" id="btn-export-factures">Exporter les factures (comptable)</button><span class="spacer"></span>
+      <button type="button" id="btn-save-facture" class="primary">Enregistrer</button></div>
+  </section>
+  <section class="panneau">
     <h2>Reprises</h2>
     <p class="muted">Hausse des prix à La Réunion par rapport aux cotes métropole, et marge visée sur la revente.</p>
     <div class="grid trois">
@@ -272,6 +281,16 @@
   </div>
 </dialog>
 
+<dialog id="dlg-prepa" class="plein">
+  <div class="o-page">
+    <div class="o-tete"><h2 id="prepa-titre">Préparation</h2>
+      <button type="button" id="prepa-fermer" class="ghost-dark" aria-label="Fermer">✕</button></div>
+    <div id="prepa-body" class="o-body"></div>
+    <div class="actions o-actions"><span class="spacer"></span>
+      <button type="button" id="prepa-pret" class="success">Prêt → en stock</button></div>
+  </div>
+</dialog>
+
 <dialog id="dlg-import" class="plein">
   <div class="o-page">
     <div class="o-tete"><h2>Importer mon stock</h2>
@@ -315,6 +334,8 @@
 <script src="reprise.js"></script>
 <script src="parametres.js"></script>
 <script src="papiers.js"></script>
+<script src="facture.js"></script>
+<script src="prepa.js"></script>
 <script src="import.js"></script>
 <script src="donnees.js"></script>
 <script src="demo.js"></script>

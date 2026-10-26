@@ -84,6 +84,13 @@ const Demo = (() => {
       fiche({ type: 'Expertise reprise', date: jour(2), heure: '11:00', clientId: C['Técher'], vehiculeId: vehicules[8].id, fait: false }),
       fiche({ type: 'Relance client', date: jour(1), heure: '16:00', clientId: C['Fontaine'], commandeId: commandes[commandes.length - 1].id, fait: false }),
     ];
+    // Recherches de clients : l'une correspond au Duster en stock, l'autre attend une Clio.
+    Object.assign(clients[0], { rechMarque: 'Dacia', rechBudget: 17000, rechKmMax: 80000 });
+    Object.assign(clients[6], { rechMarque: 'Citroën', rechModele: 'C3', rechBudget: 11000 });
+    // Préparation en cours sur la Polo.
+    vehicules[6].prepa = [['Vidange et filtres', true, 180], ['Pneus', true, 360], ['Freins', false, 240], ['Contrôle technique', false, 78],
+      ['Carrosserie', false, 300], ['Nettoyage intérieur', true, 60]].map(([nom, fait, montant], i) => ({ id: 'p' + i, nom, fait, montant }));
+    vehicules[6].fraisReels = 600;
     clients[3].interets = [vehicules[2].id];
     clients[1].interets = [vehicules[7].id];
 

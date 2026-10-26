@@ -194,9 +194,11 @@ const Reprise = (() => {
       if (etat.immatriculation) etat.immatriculation = formatPlaque(etat.immatriculation);
       const dup = etat.immatriculation && db.all('vehicules').find(v => v.immatriculation === etat.immatriculation && v.id !== etat.id);
       if (dup && !confirm(`La plaque ${etat.immatriculation} existe déjà (${vehiculeNom(dup)}). Continuer ?`)) return;
-      enregistrer();
+      const nouveau = !etat.id;
+      const saved = enregistrer();
       page2();
       render();
+      if (nouveau) alerteRecherche(saved);
     });
     $('#r-btn-enregistrer').addEventListener('click', () => { enregistrer(); $('#dlg-reprise').close(); toast('Reprise enregistrée'); render(); });
     $('#r-btn-refuser').addEventListener('click', () => { enregistrer({ statut: 'Reprise refusée' }); $('#dlg-reprise').close(); toast('Reprise refusée'); render(); });
@@ -207,6 +209,7 @@ const Reprise = (() => {
       if ((!etat.vendeurId || !etat.vendeurPieceNumero) && !confirm("Le livre de police demande le vendeur et le numéro de sa pièce d'identité. Valider quand même et compléter plus tard ?")) return;
       const saved = enregistrer({ statut: 'En préparation', prixAchat: etat.prixAchat || etat.prixPropose, dateEntree: etat.dateEntree || today(), achatDate: etat.achatDate || today() });
       Papiers.apresAchat(saved);
+      setTimeout(() => alerteRecherche(saved), 2800);
       $('#dlg-reprise').close();
       toast('Reprise validée : le véhicule passe en préparation');
       switchTab('stock');

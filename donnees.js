@@ -1,6 +1,6 @@
 // Onglet Données : tableau de bord du garage, calculé à partir des fiches (rien n'est saisi ici).
 // CA d'une vente = prix de vente − remise + pack livraison (la carte grise est une taxe reversée, hors CA).
-// Bénéfice estimé = CA − prix d'achat du véhicule − frais estimés à la reprise.
+// Bénéfice estimé = CA − prix d'achat du véhicule − frais (réels de la checklist de préparation, sinon estimés à la reprise).
 const Donnees = (() => {
   const MOIS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
   const EN_MAIN = ['En préparation', 'En stock', 'Réservé'];
@@ -14,7 +14,7 @@ const Donnees = (() => {
       const v = db.get('vehicules', o.vehiculeId) || {};
       const date = o.dateLivree || o.dateLivraison || (o.majLe || o.date || '').slice(0, 10);
       const ca = num(o.prixVente || v.prixVente) - num(o.remise) + num(o.montantPack);
-      const benef = ca - num(v.prixAchat) - num(v.fraisEstimes);
+      const benef = ca - num(v.prixAchat) - Prepa.frais(v);
       return { o, v, date, ca, benef };
     });
   }
@@ -143,6 +143,7 @@ const Donnees = (() => {
     const d = calculer();
     const police = Papiers.lignesPolice();
     const aCompleter = police.filter(l => l.manque.length).length;
+    const recherches = db.all('clients').filter(aUneRecherche).map(c => ({ c, n: vehiculesPour(c).length })).sort((a, b) => b.n - a.n);
     const m = MOIS[new Date().getMonth()];
     const g = Param.get().garage;
     const date = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
@@ -182,11 +183,19 @@ const Donnees = (() => {
           <p class="hint">Renseigne « Comment nous a-t-il connus ? » sur chaque fiche client pour savoir quelles annonces font vendre.</p>
           ${graphOrigines(origines())}
         </section>
+        <div class="pile">
+        <section class="panneau">
+          <div class="p-tete"><h3>Recherches clients <span class="compte">${recherches.length}</span></h3></div>
+          ${recherches.length ? `<div class="souffrance">${recherches.map(r => `<button type="button" class="souf" data-client="${r.c.id}"><span><strong>${esc(clientNom(r.c))}</strong>
+            <small>${esc(resumeRecherche(r.c))}</small></span>${r.n ? `<span class="badge b-green">${r.n} trouvé(s)</span>` : '<span class="badge b-grey">en attente</span>'}</button>`).join('')}</div>`
+            : '<p class="hint">Note ce que cherche un client (rubrique « Ce qu\'il recherche » de sa fiche) : ZX te prévient quand une reprise ou un véhicule correspond.</p>'}
+        </section>
         <section class="panneau">
           <div class="p-tete"><h3>Livre de police</h3><span class="hint">${police.length} véhicule(s) inscrit(s)</span></div>
           ${aCompleter ? `<p class="police-alerte">⚠ ${aCompleter} ligne(s) à compléter (vendeur, pièce d'identité, prix ou plaque).</p>` : police.length ? '<p class="ok-vide">✓ Toutes les lignes sont complètes.</p>' : '<p class="hint">Chaque reprise validée y crée sa ligne automatiquement.</p>'}
           <button type="button" class="chip" data-police>📖 Ouvrir le livre de police</button>
         </section>
+        </div>
       </div></div>`;
     const zone = $('#list .viz-zone');
     zone.querySelector('.viz-svg').innerHTML = graphMois(d.serie, zone.clientWidth);
