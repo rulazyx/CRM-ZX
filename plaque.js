@@ -40,7 +40,8 @@ const Plaque = (() => {
       const params = new URLSearchParams({ plaque: p });
       if (s.token) params.set('token', s.token);
       res = await fetch(`https://${host}/fr?${params}`, {
-        headers: { 'x-rapidapi-key': s.cle, 'x-rapidapi-host': host },
+        // Le service derrière RapidAPI (Autoways) exige aussi son propre token en « Authorization: Bearer ».
+        headers: { 'x-rapidapi-key': s.cle, 'x-rapidapi-host': host, ...(s.token ? { Authorization: 'Bearer ' + s.token } : {}) },
       });
     } catch (e) {
       throw new Error("Pas de réponse du service. Vérifie ta connexion ou l'adresse du service dans les réglages.");
@@ -50,7 +51,7 @@ const Plaque = (() => {
     try { json = await res.json(); } catch (e) { /* réponse non JSON */ }
     // RapidAPI explique le refus dans `message` : on l'affiche tel quel, traduit quand on le reconnaît.
     const msg = json.message || '';
-    if (/token/i.test(msg)) throw new Error('Le service demande un token : copie la valeur du paramètre « token » du Playground RapidAPI dans le menu ⚙️, champ Token.');
+    if (/token/i.test(msg)) throw new Error(s.token ? 'Token refusé par le service : vérifie le token Autoways dans le menu ⚙️.' : 'Le service demande un token Autoways : colle-le dans le menu ⚙️, champ Token.');
     if (res.status === 401 || res.status === 403) {
       if (/not subscribed/i.test(msg)) throw new Error("RapidAPI : tu n'es pas abonné à cette API. Sur sa page RapidAPI, onglet Pricing, choisis l'offre Basic (Subscribe).");
       if (/invalid api key/i.test(msg)) throw new Error('RapidAPI : clé invalide. Recopie la X-RapidAPI-Key dans le menu ⚙️.');
