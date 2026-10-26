@@ -1,6 +1,6 @@
-# CRM ZX
+# Ocaz
 
-CRM pour petits marchands de véhicules d'occasion (La Réunion), utilisable sur téléphone et sur PC.
+Ocaz, le logiciel des petits marchands de véhicules d'occasion (La Réunion), utilisable sur téléphone et sur PC.
 
 ## Version 1
 

@@ -238,7 +238,7 @@ const Papiers = (() => {
         ${(v.photos || []).length ? `<button type="button" id="an-photos">${navigator.canShare ? 'Partager / enregistrer les photos' : 'Télécharger les photos'}</button>`
           : '<span class="hint">Pas encore de photos : elles se prennent depuis le téléphone quand le véhicule est en préparation.</span>'}</div>
       <h3 class="section">${vendu ? 'Annonces à retirer' : 'Où est-elle publiée ?'}</h3>
-      <p class="hint">${vendu ? 'Le véhicule est vendu : retire ses annonces, puis coche « retirée ».' : 'Coche les sites où tu as publié : quand le véhicule sera vendu, ZX te rappellera de retirer les annonces.'}</p>
+      <p class="hint">${vendu ? 'Le véhicule est vendu : retire ses annonces, puis coche « retirée ».' : 'Coche les sites où tu as publié : quand le véhicule sera vendu, Ocaz te rappellera de retirer les annonces.'}</p>
       <div class="an-sites">${Object.entries(SITES).map(([k, [nom, url]]) => {
         const p = pub[k] || {};
         return `<div class="an-site"><label class="check"><input type="checkbox" data-site="${k}"${p.le ? ' checked' : ''}><span>${nom}${p.le ? `<small>publiée le ${dateFr(p.le)}</small>` : ''}</span></label>

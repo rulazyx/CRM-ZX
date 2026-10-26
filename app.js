@@ -1,4 +1,4 @@
-// CRM ZX — V1. Données stockées dans le navigateur (localStorage).
+// Ocaz — V1. Données stockées dans le navigateur (localStorage).
 // Toute la lecture/écriture passe par `db`, pour pouvoir brancher
 // une vraie base (Supabase) plus tard sans toucher aux écrans.
 
@@ -609,7 +609,7 @@ function fieldHtml(f, row) {
       const vs = vehiculesPour(row);
       return `<div class="field full"><label>Véhicules qui correspondent (${vs.length})</label>${vs.length
         ? vs.map(v => `<span>${esc(vehiculeNom(v))}<span class="hint"> ${esc([v.annee, km(v.kilometrage), euros(v.prixVente), v.statut].filter(Boolean).join(' · '))}</span></span>`).join('')
-        : '<span class="hint">Aucun pour l\'instant : ZX te préviendra quand une reprise ou un véhicule correspondra.</span>'}</div>`;
+        : '<span class="hint">Aucun pour l\'instant : Ocaz te préviendra quand une reprise ou un véhicule correspondra.</span>'}</div>`;
     }
     case 'cherchent': {
       const cs = row.id ? clientsQuiCherchent(row) : [];
@@ -944,7 +944,7 @@ function afficherAuth(status, user, role) {
     : refuse ? `Le compte ${user.email} n'est rattaché à aucun garage. Contacte ton administrateur. (Administrateur : cet email doit figurer dans la liste des super-admins, voir le guide de mise en route.)`
     : status === 'erreur' && user ? 'Connexion à la base impossible. Vérifie le réseau, ou que le script supabase.sql a bien été lancé.'
     : nouveau ? 'Première connexion : choisis ton mot de passe (8 caractères minimum).'
-    : 'Connecte-toi pour accéder au CRM.';
+    : 'Connecte-toi pour accéder à Ocaz.';
   $('#auth-ok').textContent = nouveau ? 'Enregistrer mon mot de passe' : 'Se connecter';
   $('#auth-champ-email').hidden = refuse || nouveau || !config;
   $('#auth-champ-mdp').hidden = refuse || !config;
@@ -1118,7 +1118,7 @@ $('#btn-export').addEventListener('click', () => {
   const blob = new Blob([JSON.stringify(db.data, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = 'crm-zx-sauvegarde-' + today() + '.json';
+  a.download = 'ocaz-sauvegarde-' + today() + '.json';
   a.click();
   URL.revokeObjectURL(a.href);
 });
@@ -1135,7 +1135,7 @@ $('#file-import').addEventListener('change', async e => {
     switchTab('donnees');
     toast('Sauvegarde importée');
   } catch (err) {
-    toast("Ce fichier n'est pas une sauvegarde CRM ZX valide.");
+    toast("Ce fichier n'est pas une sauvegarde Ocaz valide.");
   } finally {
     e.target.value = '';
   }

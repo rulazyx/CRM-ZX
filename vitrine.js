@@ -171,7 +171,7 @@
   }
   if (integre) {
     document.documentElement.classList.add('integre');
-    $('#pied').innerHTML = 'Vitrine propulsée par <a href="./" target="_blank" rel="noopener">ZX CRM</a>';
+    $('#pied').innerHTML = 'Vitrine propulsée par <a href="./" target="_blank" rel="noopener">Ocaz</a>';
     window.addEventListener('message', e => {
       if (e.source !== parent || e.data?.zx !== 'ecran') return;
       auto = true;

@@ -1,8 +1,8 @@
 {
   "id": "./",
-  "name": "ZX CRM",
-  "short_name": "ZX",
-  "description": "CRM pour marchands automobiles",
+  "name": "Ocaz",
+  "short_name": "Ocaz",
+  "description": "Le logiciel des marchands automobiles",
   "lang": "fr",
   "start_url": "./",
   "scope": "./",

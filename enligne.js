@@ -62,7 +62,7 @@ const EnLigne = (() => {
         toast(`📩 Nouvelle demande de ${d.nom}${d.vehicule ? ' pour ' + d.vehicule : ''}`);
         try {
           if ('Notification' in window && Notification.permission === 'granted') {
-            new Notification('Nouvelle demande · ZX CRM', { body: `${d.nom}${d.vehicule ? ' · ' + d.vehicule : ''}\n${d.message || d.telephone || ''}`, icon: 'icon-512.png', tag: d.id });
+            new Notification('Nouvelle demande · Ocaz', { body: `${d.nom}${d.vehicule ? ' · ' + d.vehicule : ''}\n${d.message || d.telephone || ''}`, icon: 'icon-512.png', tag: d.id });
           }
         } catch (e) { /* notifications indisponibles */ }
         chargerDemandes();

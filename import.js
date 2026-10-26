@@ -117,7 +117,7 @@ const Import = (() => {
     const doublons = vs.filter(v => v.immatriculation && existants.has(v.immatriculation)).length;
     const opt = c => CHAMPS.map(([k, l]) => `<option value="${k}"${k === c ? ' selected' : ''}>${l}</option>`).join('');
     $('#import-body').innerHTML = `
-      <p><strong>${vs.length} véhicule(s)</strong> trouvé(s) dans le fichier${doublons ? `, dont ${doublons} déjà dans ZX (même plaque) : ils seront ignorés` : ''}.</p>
+      <p><strong>${vs.length} véhicule(s)</strong> trouvé(s) dans le fichier${doublons ? `, dont ${doublons} déjà dans Ocaz (même plaque) : ils seront ignorés` : ''}.</p>
       <h3 class="section">Colonnes reconnues</h3>
       <p class="hint">Vérifie la correspondance : chaque colonne du fichier va dans la rubrique choisie.</p>
       <div class="imp-colonnes">${entetes.map((e, i) => `<label class="imp-col"><span>${esc(e) || '(sans titre)'}<small>${esc(String(lignes[0]?.[i] ?? '').slice(0, 30))}</small></span>
@@ -156,7 +156,7 @@ const Import = (() => {
   function modele() {
     const csv = 'Marque;Modèle;Version;Année;Kilométrage;Carburant;Boîte;Couleur;Plaque;VIN;Prix d\'achat;Frais;Prix de vente;Date d\'entrée\r\n'
       + 'Renault;Clio;V TCe 90 Evolution;2021;32000;Essence;Manuelle;Blanc;AB-123-CD;;11800;400;15900;' + dateFr(today()) + '\r\n';
-    Papiers.telecharger('﻿' + csv, 'modele-stock-zx.csv', 'text/csv');
+    Papiers.telecharger('﻿' + csv, 'modele-stock-ocaz.csv', 'text/csv');
   }
 
   function init() {

@@ -191,7 +191,7 @@ const Donnees = (() => {
           <div class="p-tete"><h3>Recherches clients <span class="compte">${recherches.length}</span></h3></div>
           ${recherches.length ? `<div class="souffrance">${recherches.map(r => `<button type="button" class="souf" data-client="${r.c.id}"><span><strong>${esc(clientNom(r.c))}</strong>
             <small>${esc(resumeRecherche(r.c))}</small></span>${r.n ? `<span class="badge b-green">${r.n} trouvé(s)</span>` : '<span class="badge b-grey">en attente</span>'}</button>`).join('')}</div>`
-            : '<p class="hint">Note ce que cherche un client (rubrique « Ce qu\'il recherche » de sa fiche) : ZX te prévient quand une reprise ou un véhicule correspond.</p>'}
+            : '<p class="hint">Note ce que cherche un client (rubrique « Ce qu\'il recherche » de sa fiche) : Ocaz te prévient quand une reprise ou un véhicule correspond.</p>'}
         </section>
         <section class="panneau">
           <div class="p-tete"><h3>Livre de police</h3><span class="hint">${police.length} véhicule(s) inscrit(s)</span></div>

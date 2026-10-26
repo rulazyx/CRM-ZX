@@ -1,4 +1,4 @@
-// Vitrine ZX CRM intégrée au site du garage. À coller dans le site :
+// Vitrine Ocaz intégrée au site du garage. À coller dans le site :
 // <script src="https://…/integrer.js" data-garage="adresse-de-la-vitrine" async></script>
 // Le script ajoute la vitrine à cet endroit (ou dans l'élément id="zx-vitrine" s'il existe) et ajuste sa hauteur.
 (function () {
