@@ -301,8 +301,10 @@ const TABS = {
       const v = db.get('vehicules', o.vehiculeId);
       if (v && o.statut !== 'Offre') {
         const statut = o.statut === 'Livrée' ? 'Vendu' : o.statut === 'Annulée' ? 'En stock' : 'Réservé';
-        if (v.statut !== statut) db.upsert('vehicules', { id: v.id, statut });
+        if (v.statut !== statut) db.upsert('vehicules', { id: v.id, statut, ...(statut === 'Vendu' ? { dateVente: today() } : {}) });
       }
+      // Date de livraison effective : sert au CA du mois et à la rotation du stock (onglet Données).
+      if (o.statut === 'Livrée' && !o.dateLivree) db.upsert('commandes', { id: o.id, dateLivree: today() });
       // La liste suit la vente dans son nouveau sous-onglet.
       vueCommande = Object.keys(VUES_COMMANDE).find(k => VUES_COMMANDE[k](o)) || vueCommande;
       // Offre qui devient commande : on propose tout de suite le rendez-vous de vente.
@@ -368,6 +370,7 @@ const ONGLETS = {
   stock: { table: 'vehicules', icon: 'stock', label: 'Stock', placeholder: 'Rechercher un modèle, une marque, une plaque…' },
   reprises: { table: 'vehicules', icon: 'reprise', label: 'Reprise', placeholder: 'Modèle, plaque, vendeur…' },
   planning: { table: 'planning', icon: 'planning', label: 'Planning', placeholder: 'Client, véhicule, type…' },
+  donnees: { table: null, icon: 'donnees', label: 'Données', placeholder: '' },
 };
 let onglet = 'clients';
 
@@ -376,6 +379,7 @@ let current = 'clients';
 let editing = null;
 
 function render() {
+  if (onglet === 'donnees') { renderFiltres(); Donnees.rendre(); return; }
   const tab = TABS[current];
   const q = norm($('#search').value.trim());
   renderFiltres();
@@ -444,6 +448,7 @@ function renderFiltres() {
   add.style.display = onglet === 'stock' ? 'none' : '';
   add.innerHTML = icon('plus', 18) + '<span>' + (onglet === 'reprises' ? 'Nouvelle reprise' : onglet === 'planning' ? 'Nouveau RDV' : onglet === 'commandes' ? 'Nouvelle offre' : 'Ajouter') + '</span>';
   add.style.display = onglet === 'stock' || (onglet === 'commandes' && vueCommande !== 'Offres') ? 'none' : '';
+  if (onglet === 'donnees') add.style.display = 'none';
   if (!['stock', 'reprises', 'planning', 'commandes'].includes(onglet)) { box.innerHTML = ''; box.dataset.vue = ''; return; }
   const all = db.all('vehicules');
   const opt = (list, val) => list.map(o => `<option value="${esc(o)}"${o === val ? ' selected' : ''}>${esc(o || 'Tous')}</option>`).join('');
@@ -1034,6 +1039,10 @@ $('#list').addEventListener('click', e => {
     render();
     return;
   }
+  const anc = e.target.closest('[data-vehicule]');
+  if (anc) { switchTab('stock'); openForm(anc.dataset.vehicule); return; }
+  const souf = e.target.closest('[data-client]');
+  if (souf) { switchTab('clients'); openForm(souf.dataset.client); return; }
   const evt = e.target.closest('.evt');
   if (evt) { openForm(evt.dataset.id); return; }
   const jour = e.target.closest('[data-jour]');
@@ -1074,6 +1083,8 @@ document.addEventListener('gesturestart', e => e.preventDefault());
 Offre.init();
 Reprise.init();
 Photos.init();
+let redim = null;
+window.addEventListener('resize', () => { clearTimeout(redim); if (onglet === 'donnees') redim = setTimeout(render, 150); });
 $('#dlg-photos').addEventListener('close', () => {
   const g = $('#galerie-photos');
   if (g && $('#dlg').open) Photos.galerie(g, db.get('vehicules', editing.id));
