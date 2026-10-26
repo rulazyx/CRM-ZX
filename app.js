@@ -67,14 +67,23 @@ const STATUT_VEHICULE = {
   'En stock': 'b-green', 'Réservé': 'b-orange', 'Vendu': 'b-grey',
 };
 const REPRISE = ['Reprise à étudier', 'Reprise refusée'];
-const FILTRES_VEHICULE = {
-  'Tous': () => true,
-  'Reprises': v => v.statut === 'Reprise à étudier',
-  'Stock': v => ['En préparation', 'En stock', 'Réservé'].includes(v.statut),
+const DISPONIBLE = ['En préparation', 'En stock'];
+const TYPES = ['', 'Citadine', 'Berline', 'Break', 'SUV / 4x4', 'Monospace', 'Coupé / Cabriolet', 'Utilitaire', 'Pick-up'];
+// Véhicules : deux vues. « Stock » (pas d'ajout direct, on y entre par une reprise validée) et « Reprises ».
+let vueVehicule = 'stock';
+const filtresStock = { statut: 'Disponibles', couleur: '', type: '', anneeMin: '', anneeMax: '', kmMax: '' };
+const STATUTS_STOCK = {
+  'Disponibles': v => DISPONIBLE.includes(v.statut),
+  'Réservés': v => v.statut === 'Réservé',
   'Vendus': v => v.statut === 'Vendu',
+  'Tout le stock': v => !REPRISE.includes(v.statut),
+};
+const STATUTS_REPRISE = {
+  'À étudier': v => v.statut === 'Reprise à étudier',
   'Refusées': v => v.statut === 'Reprise refusée',
 };
-let filtreVehicule = 'Tous';
+let filtreReprise = 'À étudier';
+const interessesPar = v => db.all('clients').filter(c => (c.interets || []).includes(v.id));
 const num = x => Number(x) || 0;
 const STATUT_COMMANDE = { 'Devis': 'b-blue', 'En cours': 'b-orange', 'Livrée': 'b-green', 'Annulée': 'b-red' };
 
@@ -92,19 +101,37 @@ const TABS = {
       { k: 'ville', l: 'Ville' },
       { k: 'societe', l: 'Société (si pro)', full: true },
       { k: 'notes', l: 'Notes', type: 'textarea', full: true },
+      { k: '_projet', l: 'Projet du client', type: 'section' },
+      { k: 'interets', l: 'Véhicules en stock qui l\'intéressent', type: 'interets', full: true },
+      { k: 'repriseId', l: 'Sa reprise', type: 'reprise', full: true },
     ],
     search: c => [c.prenom, c.nom, c.telephone, c.email, c.ville, c.societe],
     sort: (a, b) => norm(a.nom).localeCompare(norm(b.nom)),
     card: c => {
       const nb = db.all('commandes').filter(o => o.clientId === c.id).length;
+      const interets = (c.interets || []).map(id => db.get('vehicules', id)).filter(Boolean);
+      const reprise = db.all('vehicules').find(v => v.vendeurId === c.id && REPRISE.includes(v.statut));
       return `<div class="top"><span class="title">${esc(clientNom(c))}</span>
         ${nb ? `<span class="badge b-blue">${nb} commande${nb > 1 ? 's' : ''}</span>` : ''}</div>
         <div class="sub">${esc([c.telephone, c.email].filter(Boolean).join(' · '))}</div>
-        <div class="sub">${esc([c.ville, c.societe].filter(Boolean).join(' · '))}</div>`;
+        <div class="sub">${esc([c.ville, c.societe].filter(Boolean).join(' · '))}</div>
+        ${interets.length ? `<div class="sub">★ Intéressé par : ${esc(interets.map(vehiculeNom).join(', '))}</div>` : ''}
+        ${reprise ? `<div class="sub">↺ Reprise : ${esc(vehiculeNom(reprise))}</div>` : ''}`;
     },
     canDelete: c => {
       const nb = db.all('commandes').filter(o => o.clientId === c.id).length;
       return nb ? `Ce client a ${nb} commande(s). Supprime d'abord ses commandes.` : true;
+    },
+    // La reprise est rattachée au véhicule (vendeurId) : on met à jour le lien depuis la fiche client.
+    beforeSave: c => {
+      c.interets = c.interets || [];
+      const repriseId = c.repriseId;
+      delete c.repriseId;
+      return saved => {
+        db.all('vehicules').filter(v => v.vendeurId === saved.id && REPRISE.includes(v.statut) && v.id !== repriseId)
+          .forEach(v => db.upsert('vehicules', { id: v.id, vendeurId: '' }));
+        if (repriseId) db.upsert('vehicules', { id: repriseId, vendeurId: saved.id });
+      };
     },
   },
 
@@ -121,6 +148,7 @@ const TABS = {
       { k: 'carburant', l: 'Carburant', type: 'select', options: ['', 'Essence', 'Diesel', 'Hybride', 'Hybride rechargeable', 'Électrique', 'GPL', 'Autre'] },
       { k: 'boite', l: 'Boîte', type: 'select', options: ['', 'Manuelle', 'Automatique'] },
       { k: 'couleur', l: 'Couleur' },
+      { k: 'type', l: 'Type', type: 'select', options: TYPES },
       { k: 'statut', l: 'Statut', type: 'select', options: Object.keys(STATUT_VEHICULE), def: 'Reprise à étudier' },
       { k: '_reprise', l: 'Reprise', type: 'section' },
       { k: 'vendeurId', l: 'Vendeur (client qui cède le véhicule)', type: 'ref', table: 'clients', full: true },
@@ -134,18 +162,29 @@ const TABS = {
       { k: 'prixAchat', l: "Prix d'achat final (€)", type: 'number' },
       { k: 'prixVente', l: 'Prix de vente (€)', type: 'number' },
       { k: 'dateEntree', l: "Date d'entrée en stock", type: 'date' },
+      { k: '_interesses', type: 'interesses' },
       { k: 'notes', l: 'Notes', type: 'textarea', full: true },
     ],
-    search: v => [v.immatriculation, v.vin, v.marque, v.modele, v.finition, v.couleur, v.statut, v.annee],
+    search: v => [v.immatriculation, v.vin, v.marque, v.modele, v.finition],
     sort: (a, b) => (b.creeLe || '').localeCompare(a.creeLe || ''),
-    filter: v => FILTRES_VEHICULE[filtreVehicule](v),
+    filter: v => {
+      if (vueVehicule === 'reprises') return STATUTS_REPRISE[filtreReprise](v);
+      const f = filtresStock;
+      return STATUTS_STOCK[f.statut](v)
+        && (!f.couleur || norm(v.couleur) === norm(f.couleur))
+        && (!f.type || v.type === f.type)
+        && (!f.anneeMin || num(v.annee) >= num(f.anneeMin))
+        && (!f.anneeMax || (v.annee && num(v.annee) <= num(f.anneeMax)))
+        && (!f.kmMax || (v.kilometrage !== '' && v.kilometrage != null && num(v.kilometrage) <= num(f.kmMax)));
+    },
     card: v => {
       const reprise = REPRISE.includes(v.statut);
       const prix = reprise ? (v.prixPropose ? 'Proposé ' + euros(v.prixPropose) : '') : euros(v.prixVente);
       const marge = !reprise && v.prixVente && v.prixAchat ? num(v.prixVente) - num(v.prixAchat) - num(v.fraisEstimes) : null;
       return `<div class="top"><span class="title">${esc(vehiculeNom(v))}</span>
         <span class="badge ${STATUT_VEHICULE[v.statut] || 'b-grey'}">${esc(v.statut || '')}</span></div>
-        <div class="sub">${esc([v.annee, km(v.kilometrage), v.carburant, v.boite].filter(Boolean).join(' · '))}</div>
+        <div class="sub">${esc([v.annee, km(v.kilometrage), v.carburant, v.boite, v.type, v.couleur].filter(Boolean).join(' · '))}</div>
+        ${!reprise && interessesPar(v).length ? `<div class="sub">★ ${interessesPar(v).length} client(s) intéressé(s)</div>` : ''}
         ${reprise && v.vendeurId ? `<div class="sub">Vendeur : ${esc(clientNom(db.get('clients', v.vendeurId)))}</div>` : ''}
         <div class="top"><span>${v.immatriculation ? `<span class="plate">${esc(v.immatriculation)}</span>` : ''}</span>
         <span class="price">${prix}${marge !== null ? `<span class="sub"> · marge ${euros(marge)}</span>` : ''}</span></div>`;
@@ -153,6 +192,9 @@ const TABS = {
     canDelete: v => {
       const nb = db.all('commandes').filter(o => o.vehiculeId === v.id).length;
       return nb ? `Ce véhicule est dans ${nb} commande(s). Supprime d'abord la commande.` : true;
+    },
+    afterDelete: v => {
+      interessesPar(v).forEach(c => db.upsert('clients', { id: c.id, interets: c.interets.filter(id => id !== v.id) }));
     },
   },
 
@@ -203,28 +245,66 @@ let editing = null;
 function render() {
   const tab = TABS[current];
   const q = norm($('#search').value.trim());
-  $('#filters').innerHTML = current === 'vehicules'
-    ? Object.keys(FILTRES_VEHICULE).map(f => {
-        const n = db.all('vehicules').filter(FILTRES_VEHICULE[f]).length;
-        return `<button type="button" data-filtre="${f}" class="chip${f === filtreVehicule ? ' active' : ''}">${f} (${n})</button>`;
-      }).join('')
-    : '';
+  renderFiltres();
   const rows = db.all(current)
     .filter(r => !tab.filter || tab.filter(r))
     .filter(r => !q || norm(tab.search(r).join(' ')).includes(q))
     .sort(tab.sort);
   const total = db.all(current).length;
-  $('#count').textContent = rows.length !== total ? `${rows.length} sur ${total}` : `${total} ${tab.titre}${total > 1 ? 's' : ''}`;
-  $('#list').innerHTML = rows.length
+  const n = rows.length;
+  $('#count').textContent = current === 'vehicules' ? `${n} véhicule${n > 1 ? 's' : ''}`
+    : n !== total ? `${n} sur ${total}` : `${total} ${tab.titre}${total > 1 ? 's' : ''}`;
+  const vide = current === 'vehicules' && vueVehicule === 'stock'
+    ? "Aucun véhicule. Les véhicules entrent en stock quand tu valides une reprise (onglet Reprises)."
+    : total ? 'Aucun résultat.' : `Aucun ${tab.titre} pour l'instant.<br>Appuie sur « + Ajouter ».`;
+  $('#list').innerHTML = n
     ? rows.map(r => `<div class="card" data-id="${r.id}">${tab.card(r)}</div>`).join('')
-    : `<div class="empty">${total ? 'Aucun résultat.' : `Aucun ${tab.titre} pour l'instant.<br>Appuie sur « + Ajouter ».`}</div>`;
+    : `<div class="empty">${current === 'vehicules' && vueVehicule === 'reprises' ? 'Aucune reprise ici. Appuie sur « + Nouvelle reprise ».' : vide}</div>`;
+}
+
+const sigFiltres = () => vueVehicule + JSON.stringify(filtresStock) + filtreReprise
+  + db.all('vehicules').map(v => v.statut + v.couleur).join();
+
+// Sous-onglets et filtres de l'onglet Véhicules (reconstruits seulement quand nécessaire, pour garder le focus).
+function renderFiltres() {
+  const box = $('#filters');
+  const add = $('#btn-add');
+  add.style.display = current === 'vehicules' && vueVehicule === 'stock' ? 'none' : '';
+  add.textContent = current === 'vehicules' ? '+ Nouvelle reprise' : '+ Ajouter';
+  if (current !== 'vehicules') { box.innerHTML = ''; box.dataset.vue = ''; return; }
+  const all = db.all('vehicules');
+  const opt = (list, val) => list.map(o => `<option value="${esc(o)}"${o === val ? ' selected' : ''}>${esc(o || 'Tous')}</option>`).join('');
+  const sig = sigFiltres();
+  if (box.dataset.vue === sig) return;
+  box.dataset.vue = sig;
+  const nStock = all.filter(v => !REPRISE.includes(v.statut) && v.statut !== 'Vendu').length;
+  const nReprise = all.filter(v => v.statut === 'Reprise à étudier').length;
+  let html = `<div class="segmented">
+    <button type="button" data-vue="stock" class="${vueVehicule === 'stock' ? 'active' : ''}">Stock (${nStock})</button>
+    <button type="button" data-vue="reprises" class="${vueVehicule === 'reprises' ? 'active' : ''}">Reprises (${nReprise})</button></div>`;
+  if (vueVehicule === 'reprises') {
+    html += `<div class="chips">${Object.keys(STATUTS_REPRISE).map(f =>
+      `<button type="button" data-reprise="${f}" class="chip${f === filtreReprise ? ' active' : ''}">${f} (${all.filter(STATUTS_REPRISE[f]).length})</button>`).join('')}</div>`;
+  } else {
+    const f = filtresStock;
+    const couleurs = [''].concat([...new Set(all.filter(v => !REPRISE.includes(v.statut) && v.couleur).map(v => v.couleur.trim()))].sort());
+    html += `<div class="filtres">
+      <label>Statut<select data-f="statut">${opt(Object.keys(STATUTS_STOCK), f.statut)}</select></label>
+      <label>Type<select data-f="type">${opt(TYPES, f.type)}</select></label>
+      <label>Couleur<select data-f="couleur">${opt(couleurs, f.couleur)}</select></label>
+      <label>Année min<input data-f="anneeMin" type="number" inputmode="numeric" value="${esc(f.anneeMin)}" placeholder="ex. 2015"></label>
+      <label>Année max<input data-f="anneeMax" type="number" inputmode="numeric" value="${esc(f.anneeMax)}" placeholder="ex. 2022"></label>
+      <label>Km max<input data-f="kmMax" type="number" inputmode="numeric" step="10000" value="${esc(f.kmMax)}" placeholder="ex. 100000"></label>
+      <button type="button" id="btn-reset-filtres" class="chip">Effacer</button></div>`;
+  }
+  box.innerHTML = html;
 }
 
 function switchTab(name) {
   current = name;
   document.querySelectorAll('[data-tab]').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
   $('#search').value = '';
-  $('#search').placeholder = { clients: 'Nom, téléphone, ville…', commandes: 'N°, client, véhicule…', vehicules: 'Plaque, marque, modèle…' }[name];
+  $('#search').placeholder = { clients: 'Nom, téléphone, ville…', commandes: 'N°, client, véhicule…', vehicules: 'Rechercher un modèle, une marque, une plaque…' }[name];
   render();
 }
 
@@ -238,6 +318,29 @@ function fieldHtml(f, row) {
   switch (f.type) {
     case 'lookup': return lookupHtml(row);
     case 'section': return `<h3 class="section">${esc(f.l)}</h3>`;
+    case 'interets': {
+      const sel = row.interets || [];
+      const opts = db.all('vehicules').filter(v => DISPONIBLE.includes(v.statut) || v.statut === 'Réservé' || sel.includes(v.id))
+        .sort((a, b) => norm(vehiculeNom(a)).localeCompare(norm(vehiculeNom(b))));
+      return `<div class="${cls}"><label>${esc(f.l)}</label>${opts.length
+        ? `<input type="search" class="mini-search" placeholder="Filtrer les véhicules…" data-filtre-liste="interets">
+           <div class="checklist" id="liste-interets">${opts.map(v => `<label class="check"><input type="checkbox" name="interets" value="${v.id}"${sel.includes(v.id) ? ' checked' : ''}>
+           <span>${esc(vehiculeNom(v))}<span class="sub"> ${esc([v.annee, km(v.kilometrage), v.couleur, euros(v.prixVente)].filter(Boolean).join(' · '))}${v.statut !== 'En stock' ? ' · ' + esc(v.statut) : ''}</span></span></label>`).join('')}</div>`
+        : '<span class="hint">Aucun véhicule en stock pour le moment.</span>'}</div>`;
+    }
+    case 'reprise': {
+      const cur = row.id ? db.all('vehicules').find(v => v.vendeurId === row.id && REPRISE.includes(v.statut)) : null;
+      const opts = db.all('vehicules').filter(v => REPRISE.includes(v.statut) && (!v.vendeurId || v.vendeurId === row.id || !db.get('clients', v.vendeurId)));
+      return `<div class="${cls}"><label for="${id}">${esc(f.l)}</label>
+        <div class="inline"><select id="${id}" name="repriseId"><option value="">Aucune</option>${opts.map(v =>
+          `<option value="${v.id}"${cur && cur.id === v.id ? ' selected' : ''}>${esc(vehiculeNom(v) + (v.immatriculation ? ' — ' + v.immatriculation : '') + (v.statut === 'Reprise refusée' ? ' (refusée)' : ''))}</option>`).join('')}</select>
+        <button type="button" id="btn-nouvelle-reprise">+ Nouvelle</button></div>
+        <span class="hint">« + Nouvelle » enregistre le client puis ouvre une fiche de reprise à son nom.</span></div>`;
+    }
+    case 'interesses': {
+      const cs = row.id ? interessesPar(row) : [];
+      return cs.length ? `<div class="field full"><label>Clients intéressés</label><span>${esc(cs.map(clientNom).join(', '))}</span></div>` : '';
+    }
     case 'cote': return `<div class="field full cote"><span class="hint">Trouver une cote (gratuit, ouvre un nouvel onglet) :</span>
       <div class="chips"><button type="button" class="chip" data-cote="lacentrale">La Centrale</button>
       <button type="button" class="chip" data-cote="argus">L'argus</button>
@@ -273,9 +376,9 @@ function lookupHtml(row) {
   </div>`;
 }
 
-function openForm(id) {
+function openForm(id, preset = {}) {
   const tab = TABS[current];
-  const row = id ? db.get(current, id) : {};
+  const row = id ? db.get(current, id) : { ...preset };
   editing = { table: current, id };
   $('#form-title').textContent = id ? (current === 'commandes' ? 'Commande ' + row.numero : 'Modifier le ' + tab.titre) : tab.titreNouveau;
   $('#form-body').innerHTML = `<div class="grid">${tab.fields.map(f => fieldHtml(f, row)).join('')}</div>`;
@@ -286,6 +389,7 @@ function openForm(id) {
     : '';
   if (current === 'vehicules') wireVehicule();
   if (current === 'commandes') wireCommande();
+  if (current === 'clients') wireClient();
   $('#dlg').showModal();
 }
 
@@ -350,6 +454,25 @@ function wireVehicule() {
   $('#btn-vin').addEventListener('click', decode);
 }
 
+function wireClient() {
+  $('[data-filtre-liste]')?.addEventListener('input', e => {
+    const q = norm(e.target.value);
+    document.querySelectorAll('#liste-interets .check').forEach(l => { l.style.display = norm(l.textContent).includes(q) ? '' : 'none'; });
+  });
+  $('#btn-nouvelle-reprise').addEventListener('click', () => {
+    if (!$('#form').reportValidity()) return;
+    apresEnregistrement = saved => {
+      vueVehicule = 'reprises';
+      filtreReprise = 'À étudier';
+      switchTab('vehicules');
+      openForm(null, { vendeurId: saved.id });
+    };
+    $('#form').requestSubmit();
+  });
+}
+
+let apresEnregistrement = null;
+
 function wireCommande() {
   // Pré-remplir le prix avec le prix de vente du véhicule choisi.
   $('#f-vehiculeId').addEventListener('change', e => {
@@ -362,18 +485,25 @@ $('#form').addEventListener('submit', e => {
   e.preventDefault();
   const tab = TABS[editing.table];
   const row = { id: editing.id };
-  new FormData(e.target).forEach((v, k) => { row[k] = typeof v === 'string' ? v.trim() : v; });
+  const fd = new FormData(e.target);
+  fd.forEach((v, k) => { row[k] = typeof v === 'string' ? v.trim() : v; });
+  if (editing.table === 'clients') row.interets = fd.getAll('interets');
   if (row.immatriculation) row.immatriculation = formatPlaque(row.immatriculation);
   if (row.vin) row.vin = VIN.clean(row.vin);
   if (editing.table === 'vehicules' && row.immatriculation) {
     const dup = db.all('vehicules').find(v => v.immatriculation === row.immatriculation && v.id !== editing.id);
     if (dup && !confirm(`La plaque ${row.immatriculation} existe déjà (${vehiculeNom(dup)}). Enregistrer quand même ?`)) return;
   }
+  const after = tab.beforeSave?.(row);
   const saved = db.upsert(editing.table, row);
+  after?.(saved);
   tab.afterSave?.(saved);
   $('#dlg').close();
   toast(editing.id ? 'Modifications enregistrées' : (editing.table === 'commandes' ? 'Commande ' + saved.numero + ' créée' : 'Ajouté'));
   render();
+  const next = apresEnregistrement;
+  apresEnregistrement = null;
+  next?.(saved);
 });
 
 $('#btn-delete').addEventListener('click', () => {
@@ -390,6 +520,7 @@ $('#btn-delete').addEventListener('click', () => {
 });
 
 $('#btn-cancel').addEventListener('click', () => $('#dlg').close());
+$('#dlg').addEventListener('close', () => { apresEnregistrement = null; });
 
 // ---------- Sauvegarde ----------
 $('#btn-menu').addEventListener('click', () => {
@@ -438,8 +569,21 @@ $('#file-import').addEventListener('change', async e => {
 document.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
 $('#search').addEventListener('input', render);
 $('#filters').addEventListener('click', e => {
-  const b = e.target.closest('[data-filtre]');
-  if (b) { filtreVehicule = b.dataset.filtre; render(); }
+  const b = e.target.closest('button');
+  if (!b) return;
+  if (b.dataset.vue) { vueVehicule = b.dataset.vue; $('#search').value = ''; }
+  else if (b.dataset.reprise) filtreReprise = b.dataset.reprise;
+  else if (b.id === 'btn-reset-filtres') Object.assign(filtresStock, { statut: 'Disponibles', couleur: '', type: '', anneeMin: '', anneeMax: '', kmMax: '' });
+  else return;
+  render();
+});
+$('#filters').addEventListener('input', e => {
+  const k = e.target.dataset.f;
+  if (!k) return;
+  filtresStock[k] = e.target.value;
+  // Les champs texte gardent le focus : on ne reconstruit pas la barre de filtres.
+  $('#filters').dataset.vue = sigFiltres();
+  render();
 });
 $('#btn-add').addEventListener('click', () => openForm(null));
 $('#list').addEventListener('click', e => {
