@@ -45,7 +45,14 @@ const Plaque = (() => {
     saveSettings({ usage: Object.assign(s.usage, { [mois()]: usageCeMois() + 1 }) });
     let json = {};
     try { json = await res.json(); } catch (e) { /* réponse non JSON */ }
-    if (res.status === 401 || res.status === 403) throw new Error("Clé refusée. Vérifie ta clé et que tu es bien abonné à l'API (offre Basic gratuite) sur RapidAPI.");
+    // RapidAPI explique le refus dans `message` : on l'affiche tel quel, traduit quand on le reconnaît.
+    const msg = json.message || '';
+    if (res.status === 401 || res.status === 403) {
+      if (/not subscribed/i.test(msg)) throw new Error("RapidAPI : tu n'es pas abonné à cette API. Sur sa page RapidAPI, onglet Pricing, choisis l'offre Basic (Subscribe).");
+      if (/invalid api key/i.test(msg)) throw new Error('RapidAPI : clé invalide. Recopie la X-RapidAPI-Key dans le menu ⚙️.');
+      throw new Error('Accès refusé par RapidAPI (' + res.status + ')' + (msg ? ' : ' + msg : '.'));
+    }
+    if (res.status === 404 || /does not exist/i.test(msg)) throw new Error("Service introuvable : vérifie l'adresse X-RapidAPI-Host dans le menu ⚙️." + (msg ? ' (' + msg + ')' : ''));
     if (res.status === 429) throw new Error('Quota atteint pour ce mois.');
     if (!res.ok || json.error || !json.data) throw new Error(json.message || `Véhicule introuvable (erreur ${res.status}).`);
     const d = json.data;

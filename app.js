@@ -734,5 +734,7 @@ document.querySelectorAll('[data-tab]').forEach(b => {
 $('#btn-menu').innerHTML = icon('reglages', 20);
 $('#search-ico').innerHTML = icon('recherche', 18);
 switchTab('clients');
+// iOS ignore parfois user-scalable=no : on bloque aussi le geste de pincement.
+document.addEventListener('gesturestart', e => e.preventDefault());
 Sync.init(afficherSync);
 afficherSync(Sync.status, Sync.user);

@@ -247,3 +247,7 @@ details.fiche dd { margin: 0; word-break: break-word; }
 .sync-pill.s-envoi, .sync-pill.s-connexion { color: #fcd34d; }
 @media (max-width: 420px) { .sync-pill span { display: none; } }
 #dlg-menu h2 { font-size: 17px; }
+
+/* Pas de zoom : double-tap désactivé, et champs en 16 px pour éviter le zoom automatique d'iOS. */
+html { touch-action: manipulation; -webkit-text-size-adjust: 100%; }
+@media (max-width: 899px) { input, select, textarea { font-size: 16px !important; } }
