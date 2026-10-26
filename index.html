@@ -18,6 +18,26 @@
   <div class="splash-nom"><span class="brand-name">ZX</span><span class="brand-sub">CRM</span></div>
   <div class="splash-route"><span></span></div>
 </div>
+<div id="auth" hidden>
+  <form id="auth-form" class="auth-carte" novalidate>
+    <img src="logo.svg" alt="" width="72" height="72">
+    <h1><span class="brand-name">ZX</span> <span class="brand-sub">CRM</span></h1>
+    <p id="auth-texte" class="muted">Connecte-toi pour accéder au CRM.</p>
+    <div class="field" id="auth-champ-email"><label for="auth-email">Email</label><input id="auth-email" type="email" autocomplete="username" required></div>
+    <div class="field" id="auth-champ-mdp"><label for="auth-mdp">Mot de passe</label><input id="auth-mdp" type="password" autocomplete="current-password" minlength="8" required></div>
+    <button type="submit" id="auth-ok" class="primary">Se connecter</button>
+    <div class="auth-liens">
+      <button type="button" id="auth-creer" class="lien">Créer mon compte</button>
+      <button type="button" id="auth-oubli" class="lien">Mot de passe oublié ?</button>
+      <button type="button" id="auth-sortir" class="lien" hidden>Se déconnecter</button>
+    </div>
+  </form>
+</div>
+<div id="install-banner" hidden>
+  <span id="install-texte">Installe l'appli sur ton téléphone pour l'ouvrir comme une vraie appli.</span>
+  <button type="button" id="install-ok" class="primary">Installer</button>
+  <button type="button" id="install-non" class="ghost-dark" aria-label="Plus tard">✕</button>
+</div>
 <header>
   <div class="brand"><img src="logo.svg" alt="" width="34" height="34"><span class="brand-name">ZX</span><span class="brand-sub">CRM</span></div>
   <nav id="tabs">
@@ -95,21 +115,56 @@
   </div>
 </dialog>
 
+<dialog id="dlg-photos" class="plein">
+  <div class="o-page">
+    <div class="o-tete"><h2 id="photos-titre">Photos</h2>
+      <button type="button" id="photos-fermer" class="ghost-dark" aria-label="Fermer">✕</button></div>
+    <div class="o-body">
+      <p id="photos-compteur" class="ph-compteur"></p>
+      <div id="photos-grille" class="ph-grille"></div>
+      <p class="hint">Les photos sont réduites puis envoyées tout de suite sur la fiche du véhicule.</p>
+    </div>
+    <div class="actions o-actions">
+      <label class="button primary ph-btn" id="photos-prendre">📷 Prendre une photo<input id="photos-input" type="file" accept="image/*" capture="environment" hidden></label>
+      <label class="button ph-btn" id="photos-galerie">Depuis la galerie<input id="photos-input-galerie" type="file" accept="image/*" multiple hidden></label>
+      <span class="spacer"></span>
+      <button type="button" id="photos-terminer" class="success">Terminer</button>
+    </div>
+  </div>
+</dialog>
+
 <dialog id="dlg-menu">
   <form method="dialog">
-    <h2>Synchronisation PC / téléphone</h2>
-    <p class="muted">Avec la synchro, tes données sont gardées en ligne et identiques sur tous tes appareils.</p>
-    <div class="stack">
+    <h2>Compte</h2>
+    <p class="muted" id="compte-intro">Avec un compte, les données sont gardées en ligne et identiques sur le téléphone et l'ordinateur. Seuls les comptes ajoutés par l'admin y ont accès.</p>
+    <div class="stack" id="compte-connecte" hidden>
+      <span class="hint" id="sync-etat"></span>
+      <button type="button" id="btn-deconnexion">Se déconnecter</button>
+    </div>
+    <div id="equipe" hidden>
+      <h2 style="margin-top:20px">Équipe</h2>
+      <p class="muted">Ajoute l'email d'un collègue : il crée ensuite son compte depuis l'écran de connexion avec ce même email.</p>
+      <div id="equipe-liste" class="equipe-liste"></div>
+      <div class="inline"><input id="equipe-email" type="email" placeholder="email@exemple.fr" autocomplete="off">
+        <select id="equipe-role"><option value="vendeur">Vendeur</option><option value="admin">Admin</option></select>
+        <button type="button" id="btn-equipe-ajouter" class="primary">Ajouter</button></div>
+    </div>
+    <h2 style="margin-top:20px">Installer sur un autre appareil</h2>
+    <p class="muted">Scanne ce QR code avec l'appareil photo du téléphone : l'appli s'ouvre déjà réglée, il ne reste qu'à se connecter.
+      Le lien seul ne donne accès à rien sans un compte autorisé.</p>
+    <div class="install-qr"><div id="qr"></div>
+      <div class="stack"><button type="button" id="btn-copier-lien">Copier le lien</button>
+        <button type="button" id="btn-installer-ici" hidden>Installer sur cet appareil</button>
+        <span class="hint">iPhone : ouvre le lien dans Safari, touche Partager ⬆️ puis « Sur l'écran d'accueil ».<br>
+          Android : ouvre le lien dans Chrome, touche « Installer » (ou menu ⋮ > Installer l'application).</span></div></div>
+    <details id="reglages-supabase" style="margin-top:16px"><summary>Réglages techniques (Supabase)</summary>
+    <div class="stack" style="margin-top:10px">
       <div class="field"><label for="set-sb-url">Adresse Supabase (Project URL)</label>
         <input id="set-sb-url" autocomplete="off" spellcheck="false" placeholder="https://xxxx.supabase.co"></div>
       <div class="field"><label for="set-sb-cle">Clé publique (anon / publishable key)</label>
         <input id="set-sb-cle" type="password" autocomplete="off" spellcheck="false"></div>
       <button type="button" id="btn-save-sync">Enregistrer</button>
-      <span class="hint" id="sync-etat"></span>
-      <div class="inline" id="sync-connexion"><input id="set-email" type="email" placeholder="ton@email.fr" autocomplete="email">
-        <button type="button" id="btn-connexion" class="primary">Recevoir le lien</button></div>
-      <button type="button" id="btn-deconnexion" hidden>Se déconnecter</button>
-    </div>
+    </div></details>
     <h2 style="margin-top:20px">Recherche par plaque</h2>
     <p class="muted">Clé api-plaque.com (RapidAPI). Elle reste sur cet appareil et n'est envoyée qu'au service de recherche.</p>
     <div class="stack">
@@ -155,7 +210,9 @@
 <script src="icons.js"></script>
 <script src="vin.js"></script>
 <script src="plaque.js"></script>
+<script src="qrcode.js"></script>
 <script src="sync.js"></script>
+<script src="photos.js"></script>
 <script src="offre.js"></script>
 <script src="reprise.js"></script>
 <script src="app.js"></script>

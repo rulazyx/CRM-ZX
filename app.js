@@ -27,6 +27,11 @@ const db = {
     catch (e) { toast("Impossible d'enregistrer sur cet appareil."); }
     if (!distant) Sync.changed();
   },
+  // Déconnexion : les données restent en ligne, on les retire de l'appareil.
+  vider() {
+    this.data = { clients: [], vehicules: [], commandes: [], planning: [], seq: 0 };
+    try { localStorage.removeItem(STORAGE_KEY); } catch (e) { /* rien */ }
+  },
   all(table) { return this.data[table]; },
   get(table, id) { return this.data[table].find(r => r.id === id); },
   upsert(table, row) {
@@ -37,6 +42,7 @@ const db = {
     } else {
       row.id = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
       row.creeLe = now;
+      row.majLe = now;
       if (table === 'commandes') row.numero = 'CMD-' + String(++this.data.seq).padStart(4, '0');
       this.data[table].push(row);
     }
@@ -45,6 +51,8 @@ const db = {
   },
   remove(table, id) {
     this.data[table] = this.data[table].filter(r => r.id !== id);
+    // Trace de la suppression, pour que la synchro ne la fasse pas revenir depuis un autre appareil.
+    this.data.supprimes = Object.assign(this.data.supprimes || {}, { [id]: new Date().toISOString() });
     this.save();
   },
 };
@@ -213,6 +221,7 @@ const TABS = {
       { k: 'prixAchat', l: "Prix d'achat final (€)", type: 'number' },
       { k: 'prixVente', l: 'Prix de vente (€)', type: 'number' },
       { k: 'dateEntree', l: "Date d'entrée en stock", type: 'date' },
+      { k: '_photos', type: 'photos' },
       { k: '_interesses', type: 'interesses' },
       { k: 'notes', l: 'Notes', type: 'textarea', full: true },
     ],
@@ -236,6 +245,7 @@ const TABS = {
         <div class="top"><span class="title">${esc(vehiculeNom(v))}</span>
         <span class="badge ${STATUT_VEHICULE[v.statut] || 'b-grey'}">${esc(v.statut || '')}</span></div>
         <div class="sub">${esc([v.annee, km(v.kilometrage), v.carburant, v.boite, v.type, v.couleur].filter(Boolean).join(' · '))}</div>
+        ${(v.photos || []).length ? `<div class="sub">📷 ${v.photos.length} photo(s)</div>` : Photos.deblocable(v) ? '<div class="sub">📷 Photos à prendre</div>' : ''}
         ${!reprise && interessesPar(v).length ? `<div class="sub">★ ${interessesPar(v).length} client(s) intéressé(s)</div>` : ''}
         ${reprise && v.vendeurId ? `<div class="sub">Vendeur : ${esc(clientNom(db.get('clients', v.vendeurId)))}</div>` : ''}
         <div class="top"><span>${v.immatriculation ? `<span class="plate">${esc(v.immatriculation)}</span>` : ''}</span>
@@ -519,6 +529,11 @@ function fieldHtml(f, row) {
       return `<details class="fiche full" id="fiche"${n ? '' : ' hidden'}><summary>Fiche technique complète (<span id="fiche-n">${n}</span> infos)</summary>
         <dl id="fiche-dl">${ficheHtml(fiche)}</dl></details>`;
     }
+    case 'photos': {
+      if (!row.id || !Photos.deblocable(row) && !(row.photos || []).length) return '';
+      const n = (row.photos || []).length;
+      return `<div class="field full"><label>Photos (${n} / ${Photos.MAX})</label><div id="galerie-photos"></div></div>`;
+    }
     case 'interesses': {
       const cs = row.id ? interessesPar(row) : [];
       return cs.length ? `<div class="field full"><label>Clients intéressés</label><span>${esc(cs.map(clientNom).join(', '))}</span></div>` : '';
@@ -591,6 +606,9 @@ function openForm(id, preset = {}) {
     : current === 'commandes' && id && ETAPE_SUIVANTE[row.statut]
     ? `<button type="button" id="btn-etape" class="success" data-statut="${ETAPE_SUIVANTE[row.statut][1]}">${ETAPE_SUIVANTE[row.statut][0]}</button>`
     : '';
+  // Sur le téléphone, la prise de photos se débloque dès que le véhicule est en préparation.
+  if (current === 'vehicules' && id && Photos.deblocable(row) && Photos.estTelephone())
+    $('#form-extra').insertAdjacentHTML('afterbegin', '<button type="button" id="btn-photos" class="primary">📷 Prendre les photos</button>');
   if (current === 'vehicules') wireVehicule();
   if (current === 'commandes') wireCommande();
   if (current === 'clients') wireClient();
@@ -598,6 +616,9 @@ function openForm(id, preset = {}) {
 }
 
 function wireVehicule() {
+  const galerie = $('#galerie-photos');
+  if (galerie) Photos.galerie(galerie, db.get('vehicules', editing.id));
+  $('#btn-photos')?.addEventListener('click', () => Photos.ouvrir(editing.id));
   $('#btn-pret')?.addEventListener('click', () => {
     $('#f-statut').value = 'En stock';
     if (!$('#f-dateEntree').value) $('#f-dateEntree').value = today();
@@ -773,22 +794,92 @@ $('#btn-menu').addEventListener('click', () => {
   const sb = Sync.settings();
   $('#set-sb-url').value = sb.url || '';
   $('#set-sb-cle').value = sb.cle || '';
-  afficherSync(Sync.status, Sync.user);
+  afficherSync(Sync.status, Sync.user, Sync.role);
+  afficherEquipe();
+  afficherQr();
+  majInstall();
   $('#set-usage').textContent = `${Plaque.usageCeMois()} recherche(s) par plaque ce mois-ci sur cet appareil (10 gratuites par mois avec l'offre Basic).`;
   $('#dlg-menu').showModal();
 });
 
-// ---------- Synchronisation ----------
-const SYNC_TEXTE = { off: 'Non connecté', connexion: 'Connexion…', ok: 'Synchronisé', envoi: 'Envoi…', erreur: 'Erreur de synchro' };
-function afficherSync(status, user) {
+// ---------- Comptes et synchronisation ----------
+const SYNC_TEXTE = { off: 'Non connecté', connexion: 'Connexion…', ok: 'Synchronisé', envoi: 'Envoi…', erreur: 'Erreur de synchro', refuse: 'Accès en attente', 'nouveau-mdp': 'Nouveau mot de passe' };
+let modeAuth = 'connexion'; // connexion | creer | nouveau-mdp
+let etaitConnecte = false;
+
+function afficherSync(status, user, role) {
   const pill = $('#sync-pill');
-  pill.hidden = !Sync.settings().url;
+  pill.hidden = !Sync.configure();
   pill.className = 'sync-pill s-' + status;
   pill.innerHTML = icon('nuage', 16) + '<span>' + SYNC_TEXTE[status] + '</span>';
-  $('#sync-etat').textContent = user ? `Connecté : ${user.email} · ${SYNC_TEXTE[status]}` : 'Non connecté.';
-  $('#sync-connexion').hidden = !!user;
-  $('#btn-deconnexion').hidden = !user;
+  $('#sync-etat').textContent = user ? `Connecté : ${user.email}${role ? ' · ' + (role === 'admin' ? 'Admin' : 'Vendeur') : ''} · ${SYNC_TEXTE[status]}` : '';
+  $('#compte-connecte').hidden = !user;
+  $('#equipe').hidden = role !== 'admin';
+  $('#reglages-supabase').open = !Sync.configure();
+  if (role) etaitConnecte = true;
+  // Déconnexion : les données quittent l'appareil (elles restent en ligne).
+  if (!user && etaitConnecte) { etaitConnecte = false; db.vider(); render(); }
+  afficherAuth(status, user, role);
 }
+
+// Écran de connexion : obligatoire dès que l'appli est reliée à Supabase.
+function afficherAuth(status, user, role) {
+  const gate = $('#auth');
+  const bloque = Sync.configure() && (!role || status === 'nouveau-mdp');
+  gate.hidden = !bloque || (status === 'connexion' && !!user);
+  document.body.classList.toggle('verrouille', bloque);
+  if (!bloque) return;
+  if (status === 'nouveau-mdp') modeAuth = 'nouveau-mdp';
+  const refuse = status === 'refuse';
+  const textes = {
+    connexion: ['Connecte-toi pour accéder au CRM.', 'Se connecter'],
+    creer: ["Crée ton compte avec l'email ajouté par ton admin (le tout premier compte devient admin).", 'Créer mon compte'],
+    'nouveau-mdp': ['Choisis ton nouveau mot de passe (8 caractères minimum).', 'Enregistrer'],
+  };
+  $('#auth-texte').textContent = refuse
+    ? `Le compte ${user.email} n'est pas encore autorisé. Demande à ton admin d'ajouter cet email dans ⚙️ > Équipe, puis reconnecte-toi.`
+    : status === 'erreur' && user ? 'Connexion à la base impossible. Vérifie le réseau, ou que le script supabase.sql a bien été lancé.' : textes[modeAuth][0];
+  $('#auth-ok').textContent = textes[modeAuth][1];
+  $('#auth-champ-email').hidden = refuse || modeAuth === 'nouveau-mdp';
+  $('#auth-champ-mdp').hidden = refuse;
+  $('#auth-ok').hidden = refuse;
+  $('#auth-mdp').autocomplete = modeAuth === 'connexion' ? 'current-password' : 'new-password';
+  $('#auth-creer').hidden = refuse || modeAuth === 'nouveau-mdp';
+  $('#auth-creer').textContent = modeAuth === 'creer' ? "J'ai déjà un compte" : 'Créer mon compte';
+  $('#auth-oubli').hidden = refuse || modeAuth !== 'connexion';
+  $('#auth-sortir').hidden = !user;
+}
+
+$('#auth-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const email = $('#auth-email').value.trim(), mdp = $('#auth-mdp').value;
+  const btn = $('#auth-ok');
+  if (modeAuth !== 'nouveau-mdp' && !email) { toast('Saisis ton email.'); return; }
+  if (!mdp) { toast('Saisis ton mot de passe.'); return; }
+  btn.disabled = true;
+  try {
+    if (modeAuth === 'connexion') await Sync.connecter(email, mdp);
+    else if (modeAuth === 'creer') {
+      const confirmer = await Sync.creerCompte(email, mdp);
+      modeAuth = 'connexion';
+      if (confirmer) { afficherAuth('off'); $('#auth-texte').textContent = `Compte créé. Ouvre l'email envoyé à ${email} pour le confirmer, puis connecte-toi ici.`; }
+    } else {
+      await Sync.nouveauMotDePasse(mdp);
+      modeAuth = 'connexion';
+      toast('Mot de passe enregistré');
+    }
+    $('#auth-mdp').value = '';
+  } catch (err) { toast(err.message); }
+  finally { btn.disabled = false; }
+});
+$('#auth-creer').addEventListener('click', () => { modeAuth = modeAuth === 'creer' ? 'connexion' : 'creer'; afficherAuth(Sync.status, Sync.user, Sync.role); });
+$('#auth-oubli').addEventListener('click', async () => {
+  const email = $('#auth-email').value.trim();
+  if (!email) { toast("Saisis d'abord ton email."); $('#auth-email').focus(); return; }
+  try { await Sync.motDePasseOublie(email); $('#auth-texte').textContent = `Email envoyé à ${email} : ouvre le lien pour choisir un nouveau mot de passe.`; }
+  catch (err) { toast(err.message); }
+});
+$('#auth-sortir').addEventListener('click', () => Sync.deconnecter());
 
 $('#btn-save-sync').addEventListener('click', () => {
   const url = $('#set-sb-url').value.trim(), cle = $('#set-sb-cle').value.trim();
@@ -797,16 +888,74 @@ $('#btn-save-sync').addEventListener('click', () => {
   toast('Réglages enregistrés, rechargement…');
   setTimeout(() => location.reload(), 800);
 });
-$('#btn-connexion').addEventListener('click', async () => {
-  const email = $('#set-email').value.trim();
-  if (!email) { toast('Saisis ton email.'); return; }
+$('#btn-deconnexion').addEventListener('click', () => { $('#dlg-menu').close(); Sync.deconnecter(); });
+$('#sync-pill').addEventListener('click', () => $('#btn-menu').click());
+
+// Équipe : l'admin ajoute ou retire les emails autorisés.
+async function afficherEquipe() {
+  if (Sync.role !== 'admin') return;
+  const box = $('#equipe-liste');
   try {
-    await Sync.connecter(email);
-    $('#sync-etat').textContent = `Lien envoyé à ${email}. Ouvre-le sur cet appareil pour te connecter.`;
+    const liste = await Sync.membres();
+    box.innerHTML = liste.map(m => `<div class="membre"><span>${esc(m.email)}</span>
+      <span class="badge ${m.role === 'admin' ? 'b-blue' : 'b-grey'}">${m.role === 'admin' ? 'Admin' : 'Vendeur'}</span>
+      ${m.email === Sync.user.email.toLowerCase() ? '<span class="hint">toi</span>' : `<button type="button" class="chip" data-retirer="${esc(m.email)}">Retirer</button>`}</div>`).join('');
+  } catch (err) { box.textContent = err.message; }
+}
+$('#btn-equipe-ajouter').addEventListener('click', async () => {
+  const email = $('#equipe-email').value.trim();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { toast('Email invalide.'); return; }
+  try {
+    await Sync.ajouterMembre(email, $('#equipe-role').value);
+    $('#equipe-email').value = '';
+    toast(`${email} peut maintenant créer son compte`);
+    afficherEquipe();
   } catch (err) { toast(err.message); }
 });
-$('#btn-deconnexion').addEventListener('click', () => Sync.deconnecter());
-$('#sync-pill').addEventListener('click', () => $('#btn-menu').click());
+$('#equipe-liste').addEventListener('click', async e => {
+  const email = e.target.dataset.retirer;
+  if (!email || !confirm(`Retirer l'accès de ${email} ?`)) return;
+  try { await Sync.retirerMembre(email); afficherEquipe(); } catch (err) { toast(err.message); }
+});
+
+// ---------- Installation (sans App Store) ----------
+let invitationInstall = null;
+const estInstallee = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+const estIphone = () => /iphone|ipad|ipod/i.test(navigator.userAgent);
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); invitationInstall = e; majInstall(); });
+function majInstall() {
+  $('#btn-installer-ici').hidden = !invitationInstall || estInstallee();
+  let refus = false;
+  try { refus = localStorage.getItem('crmzx-install-non') === '1'; } catch (e) { /* rien */ }
+  const montrer = !estInstallee() && !refus && Photos.estTelephone() && (invitationInstall || estIphone());
+  $('#install-banner').hidden = !montrer;
+  $('#install-ok').hidden = !invitationInstall;
+  $('#install-texte').textContent = invitationInstall
+    ? "Installe l'appli sur ton téléphone pour l'ouvrir comme une vraie appli."
+    : "Pour installer l'appli : touche Partager ⬆️ en bas de Safari, puis « Sur l'écran d'accueil ».";
+}
+async function installer() {
+  if (!invitationInstall) return;
+  invitationInstall.prompt();
+  await invitationInstall.userChoice;
+  invitationInstall = null;
+  majInstall();
+}
+$('#install-ok').addEventListener('click', installer);
+$('#btn-installer-ici').addEventListener('click', installer);
+$('#install-non').addEventListener('click', () => { try { localStorage.setItem('crmzx-install-non', '1'); } catch (e) { /* rien */ } majInstall(); });
+window.addEventListener('appinstalled', () => { invitationInstall = null; majInstall(); });
+function afficherQr() {
+  const qr = qrcode(0, 'M');
+  qr.addData(Sync.lienConfig());
+  qr.make();
+  $('#qr').innerHTML = qr.createSvgTag({ cellSize: 4, margin: 2, scalable: true });
+}
+$('#btn-copier-lien').addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText(Sync.lienConfig()); toast('Lien copié : envoie-le à ton collègue'); }
+  catch (e) { prompt('Copie ce lien :', Sync.lienConfig()); }
+});
+if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
 
 $('#btn-save-offre').addEventListener('click', () => {
   Offre.saveReglages({ ...Offre.reglages(), prixCV: num($('#set-cv').value) || 60, demarches: num($('#set-dem').value), protection: num($('#set-prot').value) });
@@ -924,6 +1073,11 @@ switchTab('clients');
 document.addEventListener('gesturestart', e => e.preventDefault());
 Offre.init();
 Reprise.init();
+Photos.init();
+$('#dlg-photos').addEventListener('close', () => {
+  const g = $('#galerie-photos');
+  if (g && $('#dlg').open) Photos.galerie(g, db.get('vehicules', editing.id));
+});
 // Écran de lancement : court (environ 1 s), puis fondu vers l'appli.
 setTimeout(() => {
   const splash = $('#splash');
@@ -932,4 +1086,5 @@ setTimeout(() => {
   setTimeout(() => splash.remove(), 800);
 }, 900);
 Sync.init(afficherSync);
-afficherSync(Sync.status, Sync.user);
+afficherSync(Sync.status, Sync.user, Sync.role);
+majInstall();
