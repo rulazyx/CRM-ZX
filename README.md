@@ -6,7 +6,8 @@ CRM pour petits marchands de véhicules d'occasion (La Réunion), utilisable sur
 
 - **Clients** : lister, rechercher, ajouter, modifier, supprimer.
 - **Véhicules** : idem, avec plaque, VIN, prix d'achat/vente, statut (En stock, Réservé, Vendu…).
-  Le VIN remplit gratuitement la marque et l'année. La recherche par plaque (modèle, finition) est prévue, l'API reste à choisir.
+  Le VIN remplit gratuitement la marque et l'année. La plaque remplit marque, modèle et finition via api-plaque.com (RapidAPI) :
+  la clé se saisit dans le menu ⋯ de l'appli et reste sur l'appareil, elle n'est jamais dans ce dépôt.
 - **Commandes** : relie un client et un véhicule, prix, acompte, statut. Le statut du véhicule suit la commande
   (En cours → Réservé, Livrée → Vendu, Annulée → En stock).
 - Sauvegarde : export / import d'un fichier `.json` (menu ⋯).

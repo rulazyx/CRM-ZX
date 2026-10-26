@@ -224,7 +224,7 @@ function lookupHtml(row) {
     <div class="field"><label for="f-vin">N° de série (VIN)</label>
       <div class="inline"><input id="f-vin" name="vin" value="${esc(row.vin || '')}" placeholder="17 caractères, case E de la carte grise" autocapitalize="characters" maxlength="20">
       <button type="button" id="btn-vin">Décoder</button></div>
-      <span class="hint" id="vin-hint">Le VIN remplit la marque et l'année gratuitement.</span></div>
+      <span class="hint" id="vin-hint">La plaque remplit marque, modèle et finition. Le VIN remplit seulement la marque et l'année, gratuitement.</span></div>
   </div>`;
 }
 
@@ -243,10 +243,24 @@ function openForm(id) {
 function wireVehicule() {
   const plate = $('#f-immatriculation');
   plate.addEventListener('blur', () => { plate.value = formatPlaque(plate.value); });
-  $('#btn-plaque').addEventListener('click', () => {
+  $('#btn-plaque').addEventListener('click', async () => {
     plate.value = formatPlaque(plate.value);
-    // À brancher : appel au service de recherche par plaque une fois l'API choisie.
-    toast('Recherche par plaque bientôt disponible. Utilise le VIN en attendant.');
+    const btn = $('#btn-plaque');
+    btn.disabled = true;
+    btn.textContent = 'Recherche…';
+    try {
+      const r = await Plaque.rechercher(plate.value);
+      // Le résultat de la plaque remplace l'identité du véhicule, et complète le reste.
+      ['marque', 'modele', 'finition'].forEach(k => { if (r[k]) $('#f-' + k).value = r[k]; });
+      ['annee', 'miseEnCirculation', 'carburant', 'vin'].forEach(k => { if (r[k] && !$('#f-' + k).value) $('#f-' + k).value = r[k]; });
+      $('#vin-hint').textContent = r.description ? 'Trouvé : ' + r.description : 'Véhicule trouvé.';
+      toast(`Véhicule trouvé (${Plaque.usageCeMois()} recherche(s) ce mois-ci)`);
+    } catch (err) {
+      toast(err.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Rechercher';
+    }
   });
   const decode = () => {
     const r = VIN.decode($('#f-vin').value);
@@ -305,7 +319,18 @@ $('#btn-delete').addEventListener('click', () => {
 $('#btn-cancel').addEventListener('click', () => $('#dlg').close());
 
 // ---------- Sauvegarde ----------
-$('#btn-menu').addEventListener('click', () => $('#dlg-menu').showModal());
+$('#btn-menu').addEventListener('click', () => {
+  const s = Plaque.settings();
+  $('#set-cle').value = s.cle;
+  $('#set-host').value = s.host;
+  $('#set-usage').textContent = `${Plaque.usageCeMois()} recherche(s) par plaque ce mois-ci sur cet appareil (10 gratuites par mois avec l'offre Basic).`;
+  $('#dlg-menu').showModal();
+});
+
+$('#btn-save-plaque').addEventListener('click', () => {
+  Plaque.saveSettings({ cle: $('#set-cle').value.trim(), host: $('#set-host').value.trim() || Plaque.DEFAULT_HOST });
+  toast('Clé enregistrée sur cet appareil');
+});
 
 $('#btn-export').addEventListener('click', () => {
   const blob = new Blob([JSON.stringify(db.data, null, 2)], { type: 'application/json' });
