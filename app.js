@@ -627,6 +627,7 @@ $('#btn-menu').addEventListener('click', () => {
   const s = Plaque.settings();
   $('#set-cle').value = s.cle;
   $('#set-host').value = s.host;
+  $('#set-token').value = s.token;
   const sb = Sync.settings();
   $('#set-sb-url').value = sb.url || '';
   $('#set-sb-cle').value = sb.cle || '';
@@ -666,7 +667,7 @@ $('#btn-deconnexion').addEventListener('click', () => Sync.deconnecter());
 $('#sync-pill').addEventListener('click', () => $('#btn-menu').click());
 
 $('#btn-save-plaque').addEventListener('click', () => {
-  Plaque.saveSettings({ cle: $('#set-cle').value.trim(), host: $('#set-host').value.trim() || Plaque.DEFAULT_HOST });
+  Plaque.saveSettings({ cle: $('#set-cle').value.trim(), host: $('#set-host').value.trim() || Plaque.DEFAULT_HOST, token: $('#set-token').value.trim() });
   $('#set-usage').textContent = 'Clé enregistrée sur cet appareil.';
   toast('Clé enregistrée sur cet appareil');
 });

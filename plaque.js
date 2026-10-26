@@ -8,7 +8,7 @@ const Plaque = (() => {
   function settings() {
     let s = {};
     try { s = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { /* vide */ }
-    return { cle: s.cle || '', host: s.host || DEFAULT_HOST, usage: s.usage || {} };
+    return { cle: s.cle || '', host: s.host || DEFAULT_HOST, token: s.token || '', usage: s.usage || {} };
   }
   function saveSettings(patch) {
     const s = Object.assign(settings(), patch);
@@ -36,7 +36,10 @@ const Plaque = (() => {
     const host = s.host.replace(/^https?:\/\//, '').replace(/\/.*$/, '');
     let res;
     try {
-      res = await fetch(`https://${host}/fr?plaque=${encodeURIComponent(p)}`, {
+      // Certaines offres demandent en plus un paramètre `token` (visible dans le Playground RapidAPI).
+      const params = new URLSearchParams({ plaque: p });
+      if (s.token) params.set('token', s.token);
+      res = await fetch(`https://${host}/fr?${params}`, {
         headers: { 'x-rapidapi-key': s.cle, 'x-rapidapi-host': host },
       });
     } catch (e) {
@@ -47,6 +50,7 @@ const Plaque = (() => {
     try { json = await res.json(); } catch (e) { /* réponse non JSON */ }
     // RapidAPI explique le refus dans `message` : on l'affiche tel quel, traduit quand on le reconnaît.
     const msg = json.message || '';
+    if (/token/i.test(msg)) throw new Error('Le service demande un token : copie la valeur du paramètre « token » du Playground RapidAPI dans le menu ⚙️, champ Token.');
     if (res.status === 401 || res.status === 403) {
       if (/not subscribed/i.test(msg)) throw new Error("RapidAPI : tu n'es pas abonné à cette API. Sur sa page RapidAPI, onglet Pricing, choisis l'offre Basic (Subscribe).");
       if (/invalid api key/i.test(msg)) throw new Error('RapidAPI : clé invalide. Recopie la X-RapidAPI-Key dans le menu ⚙️.');
