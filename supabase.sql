@@ -1,9 +1,10 @@
--- À coller dans Supabase > SQL Editor > New query, puis « Run ». Peut être relancé sans risque.
+-- À coller dans Supabase > SQL Editor > New query. AVANT « Run », remplace TON_EMAIL_ICI (plus bas,
+-- section Super-admin) par l'email de ton compte. Peut être relancé sans risque.
 -- Chaque garage inscrit a sa propre entreprise : ses données, ses photos et ses documents
 -- ne sont visibles que par les comptes de cette entreprise (règles RLS vérifiées par la base).
 -- Pas d'inscription libre : le super-admin (Anthony) crée chaque garage depuis l'appli, avec un mot de passe
 -- de départ (12345678) que le garage change à sa première connexion. Aucun email n'est envoyé.
--- Le premier compte qui se connecte (hors compte démo) devient super-admin.
+-- Le super-admin est désigné par son email dans ce script (jamais le compte démo).
 
 -- Nettoyage des tables de la version précédente (aucune donnée réelle n'y avait encore été mise).
 drop table if exists public.crm_garage;
@@ -38,9 +39,15 @@ alter table public.crm_entreprises add column if not exists demo boolean not nul
 -- Super-admin : crée les comptes des garages clients.
 create table if not exists public.crm_superadmins (email text primary key);
 alter table public.crm_superadmins enable row level security;
+-- ⬇️ Remplace TON_EMAIL_ICI par l'email de ton compte (garde les apostrophes).
+insert into public.crm_superadmins (email)
+  select lower(trim('TON_EMAIL_ICI')) where 'TON_EMAIL_ICI' like '%@%'
+  on conflict do nothing;
+delete from public.crm_superadmins where email like '%@demo.crmzx.re';
 
--- Les comptes existants n'ont plus besoin de confirmer leur email.
-update auth.users set email_confirmed_at = now() where email_confirmed_at is null;
+-- Ton compte créé avant cette version n'a plus besoin de confirmer son email.
+update auth.users set email_confirmed_at = now()
+  where email_confirmed_at is null and lower(email) in (select email from public.crm_superadmins);
 
 -- Entreprise et rôle du compte connecté (null s'il n'appartient à aucune entreprise).
 create or replace function public.crm_entreprise() returns uuid
@@ -75,11 +82,12 @@ revoke execute on function public.crm__utilisateur(text, text) from public, anon
 
 create or replace function public.crm_est_superadmin() returns boolean
 language sql stable security definer set search_path = public as $$
-  select exists (select 1 from public.crm_superadmins where email = lower(auth.jwt() ->> 'email'));
+  select lower(auth.jwt() ->> 'email') not like '%@demo.crmzx.re'
+    and exists (select 1 from public.crm_superadmins where email = lower(auth.jwt() ->> 'email'));
 $$;
 
 -- Appelée par l'appli à la connexion : renvoie le rôle, l'entreprise, et s'il faut changer le mot de passe.
--- Le tout premier compte (hors démo) devient super-admin, avec sa propre entreprise.
+-- Le super-admin reçoit sa propre entreprise à sa première connexion.
 create or replace function public.crm_moi() returns json
 language plpgsql security definer set search_path = public as $$
 declare
@@ -89,14 +97,10 @@ declare
 begin
   if auth.uid() is null then return null; end if;
   select * into m from public.crm_membres where email = e;
-  if not exists (select 1 from public.crm_superadmins)
-     and not exists (select 1 from public.crm_entreprises en where en.id = m.entreprise_id and en.demo) then
-    insert into public.crm_superadmins (email) values (e);
-    if m.email is null then
-      insert into public.crm_entreprises (nom)
-        values (coalesce(nullif(trim(auth.jwt() -> 'user_metadata' ->> 'entreprise'), ''), 'Mon garage')) returning id into eid;
-      insert into public.crm_membres (email, entreprise_id, role) values (e, eid, 'admin') returning * into m;
-    end if;
+  if m.email is null and public.crm_est_superadmin() then
+    insert into public.crm_entreprises (nom)
+      values (coalesce(nullif(trim(auth.jwt() -> 'user_metadata' ->> 'entreprise'), ''), 'Mon garage')) returning id into eid;
+    insert into public.crm_membres (email, entreprise_id, role) values (e, eid, 'admin') returning * into m;
   end if;
   if m.email is null then return null; end if;
   return json_build_object('role', m.role, 'entreprise_id', m.entreprise_id, 'doit_changer_mdp', m.doit_changer_mdp,
