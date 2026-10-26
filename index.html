@@ -85,6 +85,20 @@
     <label class="check" style="margin-top:6px"><input type="checkbox" id="vit-actif"><span>Vitrine en ligne (visible par tout le monde)</span></label>
     <div class="vit-lien" id="vit-lien"></div>
     <div class="install-qr"><div id="vit-qr"></div><span class="hint" id="vit-etat"></span></div>
+    <details class="vit-integrer" id="vit-integrer" hidden>
+      <summary>Mettre la vitrine sur le site de mon garage</summary>
+      <p class="hint">Tes véhicules s'affichent directement dans une page de ton site, toujours à jour. Choisis selon ton site :</p>
+      <h4>WordPress, ou tout site où l'on peut coller du code HTML</h4>
+      <ol class="hint"><li>Ouvre la page « Nos véhicules » de ton site en modification.</li>
+        <li>WordPress : ajoute un bloc <b>HTML personnalisé</b>. Autres sites : un bloc « Code » ou « HTML ».</li>
+        <li>Colle ce code, puis publie la page.</li></ol>
+      <textarea id="vit-code" class="vit-code" readonly rows="3"></textarea>
+      <button type="button" id="btn-vit-code">Copier le code</button>
+      <h4>Wix, Google Sites, Jimdo</h4>
+      <ol class="hint"><li>Wix : <b>Ajouter</b> &gt; <b>Intégrer du code</b> &gt; <b>Intégrer un site</b>. Google Sites : <b>Insérer</b> &gt; <b>Intégrer</b> &gt; <b>Par URL</b>.</li>
+        <li>Colle ce lien, puis agrandis le cadre (au moins 1 200 pixels de haut) : la vitrine défile à l'intérieur.</li></ol>
+      <div class="inline"><input id="vit-lien-integre" readonly><button type="button" id="btn-vit-lien-integre">Copier</button></div>
+    </details>
     <div class="p-actions"><button type="button" id="btn-vit-copier">Copier le lien</button>
       <button type="button" id="vit-notif">Recevoir les alertes sur cet appareil</button><span class="spacer"></span>
       <button type="button" id="btn-vit-save" class="primary">Enregistrer</button></div>
@@ -330,10 +344,21 @@
   <div class="o-page">
     <div class="o-tete"><h2 id="photos-titre">Photos</h2>
       <button type="button" id="photos-fermer" class="ghost-dark" aria-label="Fermer">✕</button></div>
-    <div class="o-body">
+    <div class="o-body" id="photos-normal">
       <p id="photos-compteur" class="ph-compteur"></p>
+      <div class="ph-options">
+        <label class="check"><input type="checkbox" id="ph-ameliorer"><span>Retouche auto (lumière et couleurs)</span></label>
+        <label class="check"><input type="checkbox" id="ph-logo"><span>Mon logo en bas à droite</span></label>
+        <span class="hint" id="ph-logo-hint">Ajoute ton logo dans Paramètres pour l'afficher sur les photos.</span>
+      </div>
       <div id="photos-grille" class="ph-grille"></div>
-      <p class="hint">Les photos sont réduites puis envoyées tout de suite sur la fiche du véhicule.</p>
+      <p class="hint">Les photos sont réduites, retouchées puis envoyées tout de suite sur la fiche du véhicule. « Flouter » cache la plaque ou un visage.</p>
+    </div>
+    <div class="o-body" id="photos-flou" hidden>
+      <p class="hint">Trace un cadre avec le doigt (ou la souris) sur la plaque à cacher. Tu peux en tracer plusieurs.</p>
+      <canvas id="flou-canvas" class="flou-canvas"></canvas>
+      <div class="actions"><button type="button" id="flou-retour">Retour</button><button type="button" id="flou-annuler-zone">Annuler le dernier cadre</button>
+        <span class="spacer"></span><button type="button" id="flou-appliquer" class="success">Enregistrer la photo</button></div>
     </div>
     <div class="actions o-actions">
       <label class="button primary ph-btn" id="photos-prendre">📷 Prendre une photo<input id="photos-input" type="file" accept="image/*" capture="environment" hidden></label>

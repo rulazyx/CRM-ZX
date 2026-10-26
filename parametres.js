@@ -14,6 +14,8 @@ const Param = (() => {
     facture: { regime: 'marge', conditions: '' },
     // Activité : achat-revente ou dépôt-vente par défaut (chaque véhicule garde son propre mode), et commission du dépôt.
     vitrine: { actif: false, slug: '' },
+    // Photos : retouche automatique (lumière, couleurs) et logo du garage en filigrane, appliqués à l'envoi.
+    photos: { ameliorer: true, logo: true },
     activite: { mode: 'achat', commissionType: 'pourcentage', commissionValeur: 8, commissionMin: 500, dureeMandat: 90 },
     documents: [],
   };
@@ -45,6 +47,7 @@ const Param = (() => {
       facture: { ...DEFAUTS.facture, ...(p.facture || {}) },
       activite: { ...DEFAUTS.activite, ...(p.activite || {}) },
       vitrine: { ...DEFAUTS.vitrine, ...(p.vitrine || {}) },
+      photos: { ...DEFAUTS.photos, ...(p.photos || {}) },
       packs: p.packs || DEFAUTS.packs,
       documents: p.documents || [],
     };

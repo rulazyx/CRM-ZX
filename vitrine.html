@@ -80,6 +80,16 @@ form .deux { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 footer { text-align: center; color: var(--muted); font-size: 12.5px; padding: 24px 16px calc(24px + env(safe-area-inset-bottom)); }
 footer a { color: var(--muted); }
 .ico { width: 18px; height: 18px; }
+/* Intégrée au site du garage (integrer.js ou lien &integre=1) : sans en-tête, fond transparent. */
+.integre body { background: transparent; }
+.integre header { display: none; }
+.integre main { padding: 8px 4px; }
+.integre .filtres { margin-top: 0; box-shadow: none; border: 1px solid var(--line); }
+.integre footer { padding: 14px 8px; font-size: 11.5px; }
+/* Hauteur ajustée par le site : la fiche s'ouvre en haut de la zone visible, à la taille de l'écran du visiteur. */
+.auto dialog { margin: var(--y, 0px) auto auto; max-height: var(--ecran, 100dvh); }
+.auto .fiche { max-height: var(--ecran, 100dvh); }
+@media (max-width: 760px) { .auto dialog { height: var(--ecran, 100dvh); } }
 </style>
 </head>
 <body>
@@ -97,7 +107,7 @@ footer a { color: var(--muted); }
   <p class="compte" id="compte"></p>
   <div class="grille" id="grille"></div>
 </main>
-<footer>Vitrine mise à jour en direct par <a href="./" rel="noopener">ZX CRM</a>, le logiciel des marchands automobiles de La Réunion.</footer>
+<footer id="pied">Vitrine mise à jour en direct par <a href="./" rel="noopener">ZX CRM</a>, le logiciel des marchands automobiles de La Réunion.</footer>
 
 <dialog id="dlg"><div class="fiche" id="fiche"></div></dialog>
 

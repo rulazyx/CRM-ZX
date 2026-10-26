@@ -9,7 +9,9 @@ const EnLigne = (() => {
 
   const reglages = () => Param.get().vitrine;
   const slugDe = s => norm(s).replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
-  const lien = slug => location.origin + location.pathname.replace(/[^/]*$/, '') + 'vitrine.html?g=' + encodeURIComponent(slug);
+  const dossier = () => location.origin + location.pathname.replace(/[^/]*$/, '');
+  const lien = slug => dossier() + 'vitrine.html?g=' + encodeURIComponent(slug);
+  const codeIntegre = slug => `<script src="${dossier()}integrer.js" data-garage="${slug}" async></script>`;
 
   // Copie publique : seulement ce qu'un acheteur doit voir.
   function copie() {
@@ -125,6 +127,9 @@ const EnLigne = (() => {
       $('#vit-qr').innerHTML = qr.createSvgTag({ cellSize: 3, margin: 2, scalable: true });
     }
     $('#vit-notif').hidden = !('Notification' in window) || Notification.permission === 'granted';
+    $('#vit-integrer').hidden = !(r.slug && r.actif);
+    $('#vit-code').value = r.slug ? codeIntegre(r.slug) : '';
+    $('#vit-lien-integre').value = r.slug ? lien(r.slug) + '&integre=1' : '';
   }
 
   function init() {
@@ -144,6 +149,11 @@ const EnLigne = (() => {
       try { await navigator.clipboard.writeText(lien(r.slug)); toast('Lien copié : mets-le sur ta page Facebook, tes annonces, ta carte de visite…'); }
       catch (e) { prompt('Copie ce lien :', lien(r.slug)); }
     });
+    const copier = async (texte, ok) => {
+      try { await navigator.clipboard.writeText(texte); toast(ok); } catch (e) { prompt('Copie ce texte :', texte); }
+    };
+    $('#btn-vit-code').addEventListener('click', () => copier($('#vit-code').value, 'Code copié : colle-le dans une page de ton site'));
+    $('#btn-vit-lien-integre').addEventListener('click', () => copier($('#vit-lien-integre').value, 'Lien copié'));
     $('#vit-notif').addEventListener('click', async () => {
       const p = await Notification.requestPermission();
       toast(p === 'granted' ? 'Alertes activées sur cet appareil' : 'Alertes refusées par le navigateur');

@@ -416,6 +416,9 @@ details summary { cursor: pointer; font-weight: 600; color: var(--muted); }
 .ph-compteur { font-size: 15px; margin: 0 0 12px; padding: 10px 12px; border-radius: 12px; }
 .ph-compteur.manque { background: color-mix(in srgb, var(--orange) 14%, transparent); }
 .ph-compteur.ok { background: color-mix(in srgb, var(--green) 14%, transparent); }
+.ph-flou { position: absolute; left: 4px; bottom: 4px; padding: 3px 8px; border-radius: 99px; border: 0; background: rgba(15,23,42,.7); color: #fff; font-size: 12px; }
+.ph-options { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; margin: 0 0 12px; }
+.flou-canvas { width: 100%; max-height: 62dvh; object-fit: contain; border-radius: 12px; background: #000; touch-action: none; cursor: crosshair; display: block; }
 .ph-btn.desactive { opacity: .45; pointer-events: none; }
 .spin { width: 26px; height: 26px; border-radius: 50%; border: 3px solid var(--muted); border-top-color: transparent; animation: tourne .8s linear infinite; }
 @keyframes tourne { to { transform: rotate(360deg); } }
@@ -573,6 +576,11 @@ a.button.wa-btn { display: inline-flex; align-items: center; gap: 6px; backgroun
 .depot-info .ok { color: var(--green); font-weight: 600; }
 .vit-lien { margin: 8px 0; font-size: 14px; word-break: break-all; }
 .vit-lien a { color: var(--primary); font-weight: 600; }
+.vit-integrer { margin: 10px 0 4px; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+.vit-integrer summary { cursor: pointer; font-weight: 600; }
+.vit-integrer h4 { margin: 14px 0 4px; font-size: 14px; }
+.vit-integrer ol { margin: 4px 0 8px; padding-left: 20px; }
+.vit-code { width: 100%; font: 12.5px/1.4 ui-monospace, Menlo, Consolas, monospace; resize: none; margin-bottom: 6px; }
 #vit-qr { width: 120px; }
 #vit-qr:empty { display: none; }
 .demandes .demande { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 10px 4px; border-top: 1px solid var(--line); }

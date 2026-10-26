@@ -13,7 +13,10 @@
     auto: '<svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 16H3.8a.8.8 0 0 1-.8-.8v-3.1c0-.7.4-1.3 1-1.6l1.3-.6L7 6.9A2 2 0 0 1 8.8 6h6.4a2 2 0 0 1 1.8 1l1.7 2.9 1.3.6c.6.3 1 .9 1 1.6v3.1a.8.8 0 0 1-.8.8H19"/><path d="M9 16h6"/><circle cx="7" cy="16" r="2"/><circle cx="17" cy="16" r="2"/></svg>',
   };
 
-  const slug = new URLSearchParams(location.search).get('g') || '';
+  const params = new URLSearchParams(location.search);
+  const slug = params.get('g') || '';
+  const integre = params.has('integre') && window.parent !== window;
+  const adresse = () => `?g=${encodeURIComponent(slug)}${integre ? '&integre=1' : ''}`;
   const cfg = window.CRMZX_CONFIG || {};
   let client = null, garage = {}, vehicules = [], urls = new Map();
 
@@ -81,7 +84,7 @@
         <span class="prix">${euros(v.prix)}</span></div></button>`).join('');
   }
 
-  async function fiche(id) {
+  async function fiche(id, depuis = 0) {
     const v = vehicules.find(x => x.id === id);
     if (!v) return;
     await signer(v.photos);
@@ -128,8 +131,15 @@
       btn.hidden = true;
       e.target.querySelectorAll('input, textarea').forEach(i => { i.disabled = true; });
     });
+    if (auto) {
+      // La fiche s'ouvre à hauteur de la carte touchée, et le site parent fait défiler jusqu'à elle.
+      const y = Math.max(0, Math.round(depuis - 8));
+      document.documentElement.style.setProperty('--y', y + 'px');
+      parent.postMessage({ zx: 'fiche', y }, '*');
+    }
     $('#dlg').showModal();
-    history.replaceState(null, '', `?g=${encodeURIComponent(slug)}#${encodeURIComponent(v.id)}`);
+    hauteur();
+    history.replaceState(null, '', `${adresse()}#${encodeURIComponent(v.id)}`);
   }
 
   async function demarrer() {
@@ -148,8 +158,28 @@
   }
 
   ['#f-q', '#f-marque', '#f-prix', '#f-carburant', '#f-tri'].forEach(s => $(s).addEventListener('input', grille));
-  $('#grille').addEventListener('click', e => { const c = e.target.closest('.carte'); if (c) fiche(c.dataset.id); });
-  $('#dlg').addEventListener('close', () => history.replaceState(null, '', `?g=${encodeURIComponent(slug)}`));
+  $('#grille').addEventListener('click', e => { const c = e.target.closest('.carte'); if (c) fiche(c.dataset.id, c.getBoundingClientRect().top + scrollY); });
+  $('#dlg').addEventListener('close', () => { history.replaceState(null, '', adresse()); hauteur(); });
   $('#dlg').addEventListener('click', e => { if (e.target.id === 'dlg') $('#dlg').close(); });
+  // Intégration : on donne au site parent la hauteur du contenu (fiche ouverte comprise) pour éviter une double barre de défilement.
+  let auto = false;
+  function hauteur() {
+    if (!integre) return;
+    const dlg = $('#dlg');
+    const fiche = dlg.open ? dlg.getBoundingClientRect().bottom + scrollY + 16 : 0;
+    parent.postMessage({ zx: 'hauteur', h: Math.max(document.querySelector('main').offsetHeight + $('#pied').offsetHeight, fiche) }, '*');
+  }
+  if (integre) {
+    document.documentElement.classList.add('integre');
+    $('#pied').innerHTML = 'Vitrine propulsée par <a href="./" target="_blank" rel="noopener">ZX CRM</a>';
+    window.addEventListener('message', e => {
+      if (e.source !== parent || e.data?.zx !== 'ecran') return;
+      auto = true;
+      document.documentElement.classList.add('auto');
+      document.documentElement.style.setProperty('--ecran', Math.max(320, e.data.h) + 'px');
+      hauteur();
+    });
+    new ResizeObserver(hauteur).observe(document.querySelector('main'));
+  }
   demarrer();
 })();
