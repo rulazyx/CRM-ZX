@@ -14,7 +14,10 @@ const db = {
         if (r.type === 'Rappel client') r.type = 'Relance client';
         if (r.type === 'Livraison') r.type = 'Vente / livraison';
       });
-      (this.data.commandes || []).forEach(o => { if (o.statut === 'Devis') o.statut = 'Offre'; });
+      (this.data.commandes || []).forEach(o => {
+        if (o.statut === 'Devis') o.statut = 'Offre';
+        if (o.statut === 'En cours') o.statut = 'Commande';
+      });
     } catch (e) { /* stockage indisponible : on démarre vide */ }
   },
   // `distant` : données reçues de la synchro, à ne pas renvoyer.
@@ -108,7 +111,21 @@ let filtreRdv = 'Semaine';
 let semaine = (() => { const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() - (d.getDay() + 6) % 7); return d; })();
 const ajouterJours = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
 // Une vente commence par une offre ; validée, elle devient une commande.
-const STATUT_COMMANDE = { 'Offre': 'b-purple', 'En cours': 'b-orange', 'Livrée': 'b-green', 'Annulée': 'b-red' };
+// Parcours : Offre → (acceptée) Commande → (validée) Livraison → Livrée, ou Annulée à tout moment.
+const STATUT_COMMANDE = { 'Offre': 'b-purple', 'Commande': 'b-orange', 'Livraison': 'b-blue', 'Livrée': 'b-green', 'Annulée': 'b-red' };
+const VUES_COMMANDE = {
+  'Offres': o => o.statut === 'Offre',
+  'Commandes': o => o.statut === 'Commande',
+  'Livraisons': o => o.statut === 'Livraison' || o.statut === 'Livrée',
+  'Annulées': o => o.statut === 'Annulée',
+};
+let vueCommande = 'Offres';
+// Bouton d'étape suivante selon le statut.
+const ETAPE_SUIVANTE = {
+  'Offre': ['Offre acceptée → commande', 'Commande'],
+  'Commande': ['Commande validée → livraison', 'Livraison'],
+  'Livraison': ['Véhicule livré', 'Livrée'],
+};
 
 // ---------- Définition des onglets ----------
 const TABS = {
@@ -243,6 +260,7 @@ const TABS = {
       { k: 'dateLivraison', l: 'Livraison prévue', type: 'date' },
       { k: 'notes', l: 'Notes', type: 'textarea', full: true },
     ],
+    filter: o => VUES_COMMANDE[vueCommande](o),
     search: o => [o.numero, clientNom(db.get('clients', o.clientId)), vehiculeNom(db.get('vehicules', o.vehiculeId)),
       db.get('vehicules', o.vehiculeId)?.immatriculation, o.statut],
     sort: (a, b) => (b.date || '').localeCompare(a.date || '') || (b.numero || '').localeCompare(a.numero || ''),
@@ -272,14 +290,16 @@ const TABS = {
         const statut = o.statut === 'Livrée' ? 'Vendu' : o.statut === 'Annulée' ? 'En stock' : 'Réservé';
         if (v.statut !== statut) db.upsert('vehicules', { id: v.id, statut });
       }
+      // La liste suit la vente dans son nouveau sous-onglet.
+      vueCommande = Object.keys(VUES_COMMANDE).find(k => VUES_COMMANDE[k](o)) || vueCommande;
       // Offre qui devient commande : on propose tout de suite le rendez-vous de vente.
       if (avant?.statut === 'Offre' || !avant) {
-        if (o.statut === 'En cours') {
+        if (o.statut === 'Commande') {
           apresEnregistrement = () => {
             switchTab('planning');
             openForm(null, { type: 'Vente / livraison', clientId: o.clientId, vehiculeId: o.vehiculeId, commandeId: o.id,
               date: o.dateLivraison || today(), notes: `Vente de la commande ${o.numero}` });
-            toast('Commande validée : place le rendez-vous de vente');
+            toast('Offre acceptée : place le rendez-vous de vente');
           };
         }
       }
@@ -358,7 +378,7 @@ function render() {
   const q2 = $('#search').value.trim();
   const vide = {
     clients: ["Aucun client pour l'instant", 'Ajoute ton premier client avec « + Ajouter ».'],
-    commandes: ['Aucune offre ni commande', 'Crée une offre : une relance est planifiée à J+2, et une fois acceptée elle devient une commande.'],
+    commandes: ['Aucune offre ni commande', 'Crée une offre : une relance est planifiée à J+2. Acceptée, elle passe en commande, puis en livraison.'],
     stock: ['Aucun véhicule ici', 'Les véhicules entrent en stock quand tu valides une reprise.'],
     reprises: ['Aucune reprise ici', 'Tape la plaque dans « + Nouvelle reprise » : la fiche se remplit toute seule.'],
     planning: ['Rien de prévu', 'Ajoute un essai, une expertise, une livraison ou une relance.'],
@@ -369,7 +389,7 @@ function render() {
     : `<div class="empty">${ILLUS[ONGLETS[onglet].icon]}<strong>${t1}</strong><span>${t2}</span></div>`;
 }
 
-const sigFiltres = () => onglet + JSON.stringify(filtresStock) + filtreReprise + filtreRdv
+const sigFiltres = () => onglet + JSON.stringify(filtresStock) + filtreReprise + filtreRdv + vueCommande + db.all('commandes').map(o => o.statut).join()
   + db.all('vehicules').map(v => v.statut + v.couleur).join() + db.all('planning').map(r => r.date + r.fait).join();
 
 // Calendrier de la semaine : un clic sur un jour ajoute un évènement à cette date.
@@ -410,14 +430,21 @@ function renderFiltres() {
   const add = $('#btn-add');
   add.style.display = onglet === 'stock' ? 'none' : '';
   add.innerHTML = icon('plus', 18) + '<span>' + (onglet === 'reprises' ? 'Nouvelle reprise' : onglet === 'planning' ? 'Nouveau RDV' : onglet === 'commandes' ? 'Nouvelle offre' : 'Ajouter') + '</span>';
-  if (!['stock', 'reprises', 'planning'].includes(onglet)) { box.innerHTML = ''; box.dataset.vue = ''; return; }
+  add.style.display = onglet === 'stock' || (onglet === 'commandes' && vueCommande !== 'Offres') ? 'none' : '';
+  if (!['stock', 'reprises', 'planning', 'commandes'].includes(onglet)) { box.innerHTML = ''; box.dataset.vue = ''; return; }
   const all = db.all('vehicules');
   const opt = (list, val) => list.map(o => `<option value="${esc(o)}"${o === val ? ' selected' : ''}>${esc(o || 'Tous')}</option>`).join('');
   const sig = sigFiltres();
   if (box.dataset.vue === sig) return;
   box.dataset.vue = sig;
   let html = '';
-  if (onglet === 'planning') {
+  if (onglet === 'commandes') {
+    const cmd = db.all('commandes');
+    const n = v => cmd.filter(VUES_COMMANDE[v]).length;
+    html = `<div class="segmented">${['Offres', 'Commandes', 'Livraisons'].map(v =>
+      `<button type="button" data-vuecmd="${v}" class="${v === vueCommande ? 'active' : ''}">${v} (${n(v)})</button>`).join('')}</div>
+      ${n('Annulées') ? `<div class="chips"><button type="button" data-vuecmd="Annulées" class="chip${vueCommande === 'Annulées' ? ' active' : ''}">Annulées (${n('Annulées')})</button></div>` : ''}`;
+  } else if (onglet === 'planning') {
     html = `<div class="chips">${Object.keys(FILTRES_RDV).map(f =>
       `<button type="button" data-rdv="${f}" class="chip${f === filtreRdv ? ' active' : ''}">${f}${f === 'Semaine' ? '' : ` (${db.all('planning').filter(FILTRES_RDV[f]).length})`}</button>`).join('')}</div>`;
   } else if (vueVehicule === 'reprises') {
@@ -493,7 +520,9 @@ function fieldHtml(f, row) {
       <button type="button" class="chip" data-cote="leboncoin">Annonces Leboncoin</button></div></div>`;
     case 'check': return `<label class="field check-field"><input type="checkbox" id="${id}" name="${f.k}"${val === true ? ' checked' : ''}> ${esc(f.l)}</label>`;
     case 'textarea': return `<div class="${cls}">${label}<textarea id="${id}" name="${f.k}">${esc(val)}</textarea></div>`;
-    case 'select': return `<div class="${cls}">${label}<select id="${id}" name="${f.k}">${f.options.map(o => `<option${o === val ? ' selected' : ''}>${esc(o)}</option>`).join('')}</select></div>`;
+    // Une nouvelle vente commence toujours par une offre : pas de choix du statut à la création.
+    case 'select': if (f.k === 'statut' && current === 'commandes' && !row.id) return `<input type="hidden" id="${id}" name="statut" value="Offre">`;
+      return `<div class="${cls}">${label}<select id="${id}" name="${f.k}">${f.options.map(o => `<option${o === val ? ' selected' : ''}>${esc(o)}</option>`).join('')}</select></div>`;
     case 'ref': {
       let opts = db.all(f.table).slice();
       if (f.table === 'vehicules') {
@@ -548,8 +577,8 @@ function openForm(id, preset = {}) {
   $('#form-extra').innerHTML = current === 'vehicules' && (!id || row.statut === 'Reprise à étudier')
     ? `<button type="button" id="btn-refuser" class="danger">Refuser la reprise</button>
        <button type="button" id="btn-valider" class="success">Valider → entrer en stock</button>`
-    : current === 'commandes' && id && row.statut === 'Offre'
-    ? `<button type="button" id="btn-offre-validee" class="success">Offre acceptée → commande</button>`
+    : current === 'commandes' && id && ETAPE_SUIVANTE[row.statut]
+    ? `<button type="button" id="btn-etape" class="success" data-statut="${ETAPE_SUIVANTE[row.statut][1]}">${ETAPE_SUIVANTE[row.statut][0]}</button>`
     : '';
   if (current === 'vehicules') wireVehicule();
   if (current === 'commandes') wireCommande();
@@ -654,8 +683,8 @@ let apresEnregistrement = null;
 const relances = o => db.all('planning').filter(r => r.commandeId === o.id && r.type === 'Relance client' && !r.fait);
 
 function wireCommande() {
-  $('#btn-offre-validee')?.addEventListener('click', () => {
-    $('#f-statut').value = 'En cours';
+  $('#btn-etape')?.addEventListener('click', e => {
+    $('#f-statut').value = e.target.dataset.statut;
     $('#form').requestSubmit();
   });
   // Pré-remplir le prix avec le prix de vente du véhicule choisi.
@@ -795,6 +824,7 @@ $('#filters').addEventListener('click', e => {
   const b = e.target.closest('button');
   if (!b) return;
   if (b.dataset.rdv) filtreRdv = b.dataset.rdv;
+  else if (b.dataset.vuecmd) vueCommande = b.dataset.vuecmd;
   else if (b.dataset.reprise) filtreReprise = b.dataset.reprise;
   else if (b.id === 'btn-reset-filtres') Object.assign(filtresStock, { statut: 'Disponibles', couleur: '', type: '', anneeMin: '', anneeMax: '', kmMax: '' });
   else return;
