@@ -178,6 +178,12 @@
     </div>
   </section>
   <section class="panneau">
+    <h2>Importer mon stock</h2>
+    <p class="muted">Tes véhicules sont dans un tableau Excel ou un fichier CSV ? Importe-les en une fois : ZX reconnaît les colonnes (marque, modèle, plaque, prix…).</p>
+    <div class="stack"><button type="button" id="btn-import-stock" class="primary">Importer un fichier Excel ou CSV</button>
+      <button type="button" id="btn-import-modele">Télécharger un modèle à remplir</button></div>
+  </section>
+  <section class="panneau">
     <h2>Sauvegarde</h2>
     <p class="muted">Une copie de toutes les données dans un fichier, à garder de temps en temps.</p>
     <div class="stack">
@@ -243,6 +249,39 @@
   </div>
 </dialog>
 
+<dialog id="dlg-police" class="plein">
+  <div class="o-page">
+    <div class="o-tete"><h2>Livre de police</h2>
+      <button type="button" id="police-fermer" class="ghost-dark" aria-label="Fermer">✕</button></div>
+    <div id="police-body" class="o-body police"></div>
+    <div class="actions o-actions">
+      <button type="button" id="police-exporter">Exporter (Excel)</button>
+      <span class="spacer"></span>
+      <button type="button" id="police-imprimer" class="primary">Imprimer / PDF</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="dlg-annonce" class="plein">
+  <div class="o-page">
+    <div class="o-tete"><h2 id="annonce-titre">Annonce</h2>
+      <button type="button" id="annonce-fermer" class="ghost-dark" aria-label="Fermer">✕</button></div>
+    <div id="annonce-body" class="o-body annonce"></div>
+    <div class="actions o-actions"><span class="spacer"></span>
+      <button type="button" id="annonce-ok" class="primary">Enregistrer</button></div>
+  </div>
+</dialog>
+
+<dialog id="dlg-import" class="plein">
+  <div class="o-page">
+    <div class="o-tete"><h2>Importer mon stock</h2>
+      <button type="button" id="import-fermer" class="ghost-dark" aria-label="Fermer">✕</button></div>
+    <div id="import-body" class="o-body"></div>
+    <div class="actions o-actions"><span class="spacer"></span>
+      <button type="button" id="import-ok" class="primary" hidden>Importer</button></div>
+  </div>
+</dialog>
+
 <dialog id="dlg-photos" class="plein">
   <div class="o-page">
     <div class="o-tete"><h2 id="photos-titre">Photos</h2>
@@ -275,6 +314,8 @@
 <script src="offre.js"></script>
 <script src="reprise.js"></script>
 <script src="parametres.js"></script>
+<script src="papiers.js"></script>
+<script src="import.js"></script>
 <script src="donnees.js"></script>
 <script src="demo.js"></script>
 <script src="app.js"></script>

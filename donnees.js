@@ -117,8 +117,32 @@ const Donnees = (() => {
       <span class="an-j">${x.age} j${x.age > 90 ? ' <em class="alerte">⚠ +90 j</em>' : ''}</span></button>`).join('')}</div>`;
   }
 
+  // Origine des clients : nombre de clients et ventes livrées des 12 derniers mois, par source.
+  function origines() {
+    const ilYaUnAn = isoLocal(new Date(Date.now() - 365 * jour));
+    const parSource = new Map();
+    const ligne = s => parSource.get(s) || parSource.set(s, { source: s, clients: 0, ventes: 0, ca: 0 }).get(s);
+    db.all('clients').forEach(c => { ligne(c.source || 'Non renseignée').clients++; });
+    ventes().filter(x => x.date >= ilYaUnAn).forEach(x => {
+      const c = db.get('clients', x.o.clientId);
+      const l = ligne(c?.source || 'Non renseignée');
+      l.ventes++; l.ca += x.ca;
+    });
+    return [...parSource.values()].sort((a, b) => b.ventes - a.ventes || b.clients - a.clients);
+  }
+  function graphOrigines(liste) {
+    if (!liste.length) return '<p class="hint">Aucun client pour l\'instant.</p>';
+    const max = Math.max(1, ...liste.map(x => x.ventes));
+    return `<div class="anciens">${liste.map(x => `<div class="ancien origine${x.source === 'Non renseignée' ? ' inconnue' : ''}">
+      <span class="an-nom">${esc(x.source)}<small>${x.clients} client(s)${x.ca ? ' · ' + euros(x.ca) : ''}</small></span>
+      <span class="an-barre"><span style="width:${x.ventes ? Math.max(3, x.ventes / max * 100) : 0}%"></span></span>
+      <span class="an-j">${x.ventes} vente${x.ventes > 1 ? 's' : ''}</span></div>`).join('')}</div>`;
+  }
+
   function rendre() {
     const d = calculer();
+    const police = Papiers.lignesPolice();
+    const aCompleter = police.filter(l => l.manque.length).length;
     const m = MOIS[new Date().getMonth()];
     const g = Param.get().garage;
     const date = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
@@ -150,6 +174,18 @@ const Donnees = (() => {
             return `<button type="button" class="souf" data-client="${s.id}"><span><strong>${esc(clientNom(c))}</strong>
               <small>${esc(s.motifs.join(' · '))}</small></span><span class="badge b-orange">${s.depuis} j</span></button>`;
           }).join('')}</div>` : '<p class="ok-vide">✓ Aucun client en attente. Tout est à jour.</p>'}
+        </section>
+      </div>
+      <div class="deux">
+        <section class="panneau">
+          <div class="p-tete"><h3>D'où viennent tes ventes</h3><span class="hint">12 derniers mois</span></div>
+          <p class="hint">Renseigne « Comment nous a-t-il connus ? » sur chaque fiche client pour savoir quelles annonces font vendre.</p>
+          ${graphOrigines(origines())}
+        </section>
+        <section class="panneau">
+          <div class="p-tete"><h3>Livre de police</h3><span class="hint">${police.length} véhicule(s) inscrit(s)</span></div>
+          ${aCompleter ? `<p class="police-alerte">⚠ ${aCompleter} ligne(s) à compléter (vendeur, pièce d'identité, prix ou plaque).</p>` : police.length ? '<p class="ok-vide">✓ Toutes les lignes sont complètes.</p>' : '<p class="hint">Chaque reprise validée y crée sa ligne automatiquement.</p>'}
+          <button type="button" class="chip" data-police>📖 Ouvrir le livre de police</button>
         </section>
       </div></div>`;
     const zone = $('#list .viz-zone');

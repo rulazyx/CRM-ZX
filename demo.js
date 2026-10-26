@@ -20,6 +20,8 @@ const Demo = (() => {
       ['Fontaine', 'David', '0693 88 21 07', 'Saint-Denis'], ['Rivière', 'Émilie', '0692 15 66 39', 'Saint-André'],
       ['Boyer', 'Kévin', '0693 02 97 45', 'Saint-Joseph'], ['Maillot', 'Audrey', '0692 59 13 80', 'Sainte-Marie'],
     ].map(([nom, prenom, telephone, ville]) => fiche({ nom, prenom, telephone, ville, email: `${prenom}.${nom}`.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '') + '@exemple.re' }));
+    const sources = ['Leboncoin', 'Facebook', 'Passage au garage', 'Leboncoin', 'Bouche-à-oreille', 'La Centrale', 'Leboncoin', 'Facebook'];
+    clients.forEach((c, i) => { c.source = sources[i]; c.civilite = i % 2 ? 'Mme' : 'M.'; c.adresse = (12 + i * 7) + ' rue de la République'; });
     const C = Object.fromEntries(clients.map(c => [c.nom, c.id]));
 
     const v = (marque, modele, finition, annee, km, carburant, boite, type, couleur, statut, entree, achat, vente, frais, extra = {}) => fiche({
@@ -27,7 +29,8 @@ const Demo = (() => {
       dateEntree: entree == null ? '' : jour(-entree), prixAchat: achat, prixVente: vente, fraisEstimes: frais, ...extra,
     });
     const vehicules = [
-      v('Renault', 'Clio', 'V TCe 90 Evolution', 2021, 32000, 'Essence', 'Manuelle', 'Citadine', 'Blanc', 'En stock', 45, 11800, 15900, 400),
+      v('Renault', 'Clio', 'V TCe 90 Evolution', 2021, 32000, 'Essence', 'Manuelle', 'Citadine', 'Blanc', 'En stock', 45, 11800, 15900, 400,
+        { vendeurId: C['Grondin'], immatriculation: 'GH-204-RE', vin: 'VF1RJA00X67123456', achatPaiement: 'Virement', vendeurPieceType: "Carte d'identité", vendeurPieceNumero: 'X4RT82KL9', vendeurPieceDate: jour(-2000), vendeurPieceAutorite: 'Préfecture de La Réunion' }),
       v('Peugeot', '208', 'PureTech 100 Allure', 2020, 48000, 'Essence', 'Manuelle', 'Citadine', 'Gris', 'En stock', 95, 10500, 14500, 600),
       v('Dacia', 'Duster', 'Blue dCi 115 Prestige', 2019, 61000, 'Diesel', 'Manuelle', 'SUV / 4x4', 'Orange', 'En stock', 20, 12000, 15900, 300),
       v('Toyota', 'Yaris', 'Hybride 116h Design', 2022, 25000, 'Hybride', 'Automatique', 'Citadine', 'Rouge', 'En stock', 12, 15800, 19900, 200),
@@ -49,6 +52,14 @@ const Demo = (() => {
       il, vente, client,
     }));
     vehicules.push(...ventes.map(x => x.v));
+    // Livre de police de la démo : chaque véhicule acheté a son vendeur et sa pièce d'identité.
+    const pieces = ["Carte d'identité", 'Permis de conduire', 'Passeport'];
+    vehicules.filter(x => x.statut !== 'Reprise à étudier').forEach((x, i) => {
+      if (!x.vendeurId) Object.assign(x, { vendeurId: clients[(i + 3) % clients.length].id, achatPaiement: i % 3 ? 'Virement' : 'Chèque',
+        vendeurPieceType: pieces[i % 3], vendeurPieceNumero: (i * 7919 + 104729).toString(36).toUpperCase().padStart(9, 'X'),
+        vendeurPieceDate: jour(-1500 - i * 90), vendeurPieceAutorite: 'Préfecture de La Réunion' });
+      if (!x.immatriculation) x.immatriculation = `${'FGHJKL'[i % 6]}${'ABCDEF'[(i * 5) % 6]}-${String(100 + i * 37).slice(0, 3)}-RE`;
+    });
 
     let seq = 0;
     const numero = () => 'CMD-' + String(++seq).padStart(4, '0');

@@ -89,6 +89,8 @@ const STATUT_VEHICULE = {
 };
 const REPRISE = ['Reprise à étudier', 'Reprise refusée'];
 const DISPONIBLE = ['En préparation', 'En stock'];
+// Origine des clients : sert au tableau de bord (quelles sources font vendre).
+const SOURCES = ['', 'Leboncoin', 'La Centrale', 'Facebook', 'Instagram', 'Site / vitrine', 'Passage au garage', 'Bouche-à-oreille', 'Ancien client', 'Téléphone', 'Autre'];
 const TYPES = ['', 'Citadine', 'Berline', 'Break', 'SUV / 4x4', 'Monospace', 'Coupé / Cabriolet', 'Utilitaire', 'Pick-up'];
 // Véhicules : deux vues. « Stock » (pas d'ajout direct, on y entre par une reprise validée) et « Reprises ».
 let vueVehicule = 'stock';
@@ -143,6 +145,7 @@ const TABS = {
   clients: {
     titre: 'client', titreNouveau: 'Nouveau client',
     fields: [
+      { k: 'civilite', l: 'Civilité', type: 'select', options: ['', 'M.', 'Mme'] },
       { k: 'prenom', l: 'Prénom' },
       { k: 'nom', l: 'Nom', required: true },
       { k: 'telephone', l: 'Téléphone', type: 'tel' },
@@ -151,6 +154,7 @@ const TABS = {
       { k: 'codePostal', l: 'Code postal' },
       { k: 'ville', l: 'Ville' },
       { k: 'societe', l: 'Société (si pro)', full: true },
+      { k: 'source', l: "Comment nous a-t-il connus ?", type: 'select', options: SOURCES, full: true },
       { k: 'notes', l: 'Notes', type: 'textarea', full: true },
       { k: '_projet', l: 'Projet du client', type: 'section' },
       { k: 'interets', l: 'Véhicules en stock qui l\'intéressent', type: 'interets', full: true },
@@ -164,7 +168,8 @@ const TABS = {
       const reprise = db.all('vehicules').find(v => v.vendeurId === c.id && REPRISE.includes(v.statut));
       const initiales = ((c.prenom || '')[0] || '') + ((c.nom || c.societe || '')[0] || '');
       return `<div class="top"><span class="who"><span class="avatar">${esc(initiales.toUpperCase())}</span><span class="title">${esc(clientNom(c))}</span></span>
-        ${nb ? `<span class="badge b-blue">${nb} commande${nb > 1 ? 's' : ''}</span>` : ''}</div>
+        <span class="c-badges">${c.source ? `<span class="badge b-grey">${esc(c.source)}</span>` : ''}${nb ? `<span class="badge b-blue">${nb} commande${nb > 1 ? 's' : ''}</span>` : ''}
+        ${c.telephone ? `<a class="wa" href="${esc(Papiers.lienWhatsapp(c))}" target="_blank" rel="noopener" data-stop title="WhatsApp" aria-label="Écrire sur WhatsApp">${icon('whatsapp', 18)}</a>` : ''}</span></div>
         <div class="sub">${esc([c.telephone, c.email].filter(Boolean).join(' · '))}</div>
         <div class="sub">${esc([c.ville, c.societe].filter(Boolean).join(' · '))}</div>
         ${interets.length ? `<div class="sub">★ Intéressé par : ${esc(interets.map(vehiculeNom).join(', '))}</div>` : ''}
@@ -217,12 +222,20 @@ const TABS = {
       { k: 'fraisEstimes', l: 'Frais de remise en état (€)', type: 'number' },
       { k: 'prixPropose', l: 'Prix de reprise proposé (€)', type: 'number' },
       { k: 'defauts', l: 'Défauts constatés', type: 'textarea', full: true },
+      { k: '_achat', l: 'Achat · livre de police', type: 'section' },
+      { k: 'achatDate', l: "Date d'achat", type: 'date' },
+      { k: 'achatPaiement', l: 'Paiement du vendeur', type: 'select', options: ['', 'Virement', 'Chèque', 'Espèces', "Déduit d'une vente (reprise)"] },
+      { k: 'vendeurPieceType', l: "Pièce d'identité du vendeur", type: 'select', options: ['', "Carte d'identité", 'Passeport', 'Permis de conduire', 'Titre de séjour', 'Extrait Kbis (société)'] },
+      { k: 'vendeurPieceNumero', l: 'Numéro de la pièce' },
+      { k: 'vendeurPieceDate', l: 'Délivrée le', type: 'date' },
+      { k: 'vendeurPieceAutorite', l: 'Délivrée par' },
       { k: '_stock', l: 'Stock et vente', type: 'section' },
       { k: 'prixAchat', l: "Prix d'achat final (€)", type: 'number' },
       { k: 'prixVente', l: 'Prix de vente (€)', type: 'number' },
       { k: 'dateEntree', l: "Date d'entrée en stock", type: 'date' },
       { k: '_photos', type: 'photos' },
       { k: '_interesses', type: 'interesses' },
+      { k: '_papiers', type: 'papiers' },
       { k: 'notes', l: 'Notes', type: 'textarea', full: true },
     ],
     search: v => [v.immatriculation, v.vin, v.marque, v.modele, v.finition, v.vendeurId ? clientNom(db.get('clients', v.vendeurId)) : ''],
@@ -302,6 +315,7 @@ const TABS = {
       if (v && o.statut !== 'Offre') {
         const statut = o.statut === 'Livrée' ? 'Vendu' : o.statut === 'Annulée' ? 'En stock' : 'Réservé';
         if (v.statut !== statut) db.upsert('vehicules', { id: v.id, statut, ...(statut === 'Vendu' ? { dateVente: today() } : {}) });
+        if (statut === 'Vendu') Papiers.rappelRetrait(db.get('vehicules', v.id));
       }
       // Date de livraison effective : sert au CA du mois et à la rotation du stock (onglet Données).
       if (o.statut === 'Livrée' && !o.dateLivree) db.upsert('commandes', { id: o.id, dateLivree: today() });
@@ -481,7 +495,8 @@ function renderFiltres() {
       <label>Année min<input data-f="anneeMin" type="number" inputmode="numeric" value="${esc(f.anneeMin)}" placeholder="ex. 2015"></label>
       <label>Année max<input data-f="anneeMax" type="number" inputmode="numeric" value="${esc(f.anneeMax)}" placeholder="ex. 2022"></label>
       <label>Km max<input data-f="kmMax" type="number" inputmode="numeric" step="10000" value="${esc(f.kmMax)}" placeholder="ex. 100000"></label>
-      <button type="button" id="btn-reset-filtres" class="chip">Effacer</button></div>`;
+      <button type="button" id="btn-reset-filtres" class="chip">Effacer</button></div>
+      <div class="chips"><button type="button" id="btn-police" class="chip">📖 Livre de police</button></div>`;
   }
   box.innerHTML = html;
 }
@@ -546,6 +561,7 @@ function fieldHtml(f, row) {
       const cs = row.id ? interessesPar(row) : [];
       return cs.length ? `<div class="field full"><label>Clients intéressés</label><span>${esc(cs.map(clientNom).join(', '))}</span></div>` : '';
     }
+    case 'papiers': return Papiers.section(row);
     case 'cote': return `<div class="field full cote"><span class="hint">Trouver une cote (gratuit, ouvre un nouvel onglet) :</span>
       <div class="chips"><button type="button" class="chip" data-cote="lacentrale">La Centrale</button>
       <button type="button" class="chip" data-cote="argus">L'argus</button>
@@ -611,6 +627,8 @@ function openForm(id, preset = {}) {
        <button type="button" id="btn-valider" class="success">Valider → entrer en stock</button>`
     : current === 'vehicules' && id && row.statut === 'En préparation'
     ? `<button type="button" id="btn-pret" class="success">Prêt → en stock</button>`
+    : current === 'clients' && id && row.telephone
+    ? `<a class="button wa-btn" href="${esc(Papiers.lienWhatsapp(row))}" target="_blank" rel="noopener">${icon('whatsapp', 18)} WhatsApp</a>`
     : current === 'commandes' && id && ETAPE_SUIVANTE[row.statut]
     ? `<button type="button" id="btn-etape" class="success" data-statut="${ETAPE_SUIVANTE[row.statut][1]}">${ETAPE_SUIVANTE[row.statut][0]}</button>`
     : '';
@@ -760,6 +778,10 @@ $('#form').addEventListener('submit', e => {
   const after = tab.beforeSave?.(row);
   const saved = db.upsert(editing.table, row);
   after?.(saved);
+  if (editing.table === 'vehicules') {
+    if (['En préparation', 'En stock', 'Réservé', 'Vendu'].includes(saved.statut)) Papiers.apresAchat(saved);
+    if (saved.statut === 'Vendu') Papiers.rappelRetrait(saved);
+  }
   $('#dlg').close();
   toast(editing.id ? 'Modifications enregistrées' : 'Ajouté');
   tab.afterSave?.(saved, avant);
@@ -1070,6 +1092,7 @@ $('#filters').addEventListener('click', e => {
   else if (b.dataset.vuecmd) vueCommande = b.dataset.vuecmd;
   else if (b.dataset.vuestock) vueStock = b.dataset.vuestock;
   else if (b.dataset.reprise) filtreReprise = b.dataset.reprise;
+  else if (b.id === 'btn-police') { Papiers.ouvrirPolice(); return; }
   else if (b.id === 'btn-reset-filtres') Object.assign(filtresStock, { couleur: '', type: '', anneeMin: '', anneeMax: '', kmMax: '' });
   else return;
   render();
@@ -1084,6 +1107,9 @@ $('#filters').addEventListener('input', e => {
 });
 $('#btn-add').addEventListener('click', () => (onglet === 'commandes' ? Offre.ouvrir() : onglet === 'reprises' ? Reprise.ouvrir() : openForm(null)));
 $('#list').addEventListener('click', e => {
+  if (e.target.closest('[data-stop]')) return;
+  const police = e.target.closest('[data-police]');
+  if (police) { Papiers.ouvrirPolice(); return; }
   const sem = e.target.closest('[data-sem]');
   if (sem) {
     const n = Number(sem.dataset.sem);
@@ -1139,6 +1165,8 @@ Offre.init();
 Reprise.init();
 Photos.init();
 Param.init();
+Papiers.init();
+Import.init();
 let redim = null;
 window.addEventListener('resize', () => { clearTimeout(redim); if (onglet === 'donnees') redim = setTimeout(render, 150); });
 $('#dlg-photos').addEventListener('close', () => {

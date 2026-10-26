@@ -99,7 +99,9 @@ const Reprise = (() => {
       <div class="r-fourchette" id="r-fourchette">${fourchetteHtml(c)}</div>
       <div class="field"><label for="r-prixPropose">Prix de reprise proposé (€)</label>
         <input id="r-prixPropose" data-r="prixPropose" type="number" inputmode="decimal" class="r-prix" value="${esc(v.prixPropose || '')}" placeholder="À saisir"></div>
-      <div class="field"><label for="r-defauts">Défauts constatés / notes</label><textarea id="r-defauts" data-r="defauts">${esc(v.defauts || '')}</textarea></div>`;
+      <div class="field"><label for="r-defauts">Défauts constatés / notes</label><textarea id="r-defauts" data-r="defauts">${esc(v.defauts || '')}</textarea></div>
+      ${Papiers.champsAchat(v)}
+      ${Papiers.section(db.get('vehicules', v.id))}`;
     $('#r-btn-suivant').hidden = true;
     const enCours = v.statut === 'Reprise à étudier';
     $('#r-btn-valider').hidden = !enCours;
@@ -131,7 +133,10 @@ const Reprise = (() => {
 
   function enregistrer(patch = {}) {
     const c = calcul(etat);
-    const saved = db.upsert('vehicules', { ...etat, ...extra, ...patch, coteRetenue: c.cote || '', fraisEstimes: c.frais || '' });
+    // Documents et annonces sont modifiés directement sur la fiche : on garde leur dernière version.
+    const enBase = etat.id ? db.get('vehicules', etat.id) : null;
+    const saved = db.upsert('vehicules', { ...etat, ...extra, ...patch, coteRetenue: c.cote || '', fraisEstimes: c.frais || '',
+      ...(enBase ? { documents: enBase.documents, annonces: enBase.annonces } : {}) });
     etat = { ...saved };
     extra = {};
     return saved;
@@ -197,7 +202,11 @@ const Reprise = (() => {
     $('#r-btn-refuser').addEventListener('click', () => { enregistrer({ statut: 'Reprise refusée' }); $('#dlg-reprise').close(); toast('Reprise refusée'); render(); });
     $('#r-btn-valider').addEventListener('click', () => {
       if (!num(etat.prixPropose)) { toast('Saisis le prix de reprise avant de valider.'); $('#r-prixPropose')?.focus(); return; }
-      enregistrer({ statut: 'En préparation', prixAchat: etat.prixAchat || etat.prixPropose, dateEntree: etat.dateEntree || today() });
+      // Champs du livre de police pré-remplis depuis le client : ils comptent même s'ils n'ont pas été retouchés.
+      document.querySelectorAll('#reprise-body [data-r^="vendeurPiece"], #reprise-body [data-r^="achat"]').forEach(i => { etat[i.dataset.r] = i.value; });
+      if ((!etat.vendeurId || !etat.vendeurPieceNumero) && !confirm("Le livre de police demande le vendeur et le numéro de sa pièce d'identité. Valider quand même et compléter plus tard ?")) return;
+      const saved = enregistrer({ statut: 'En préparation', prixAchat: etat.prixAchat || etat.prixPropose, dateEntree: etat.dateEntree || today(), achatDate: etat.achatDate || today() });
+      Papiers.apresAchat(saved);
       $('#dlg-reprise').close();
       toast('Reprise validée : le véhicule passe en préparation');
       switchTab('stock');
