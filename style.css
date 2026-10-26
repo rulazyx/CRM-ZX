@@ -363,3 +363,16 @@ body[data-onglet="commandes"] .toolbar .search[hidden] + #btn-add { flex: 1; jus
 @keyframes splash-texte { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 @keyframes splash-route { from { transform: translateX(-100%); } to { transform: translateX(260%); } }
 @media (prefers-reduced-motion: reduce) { #splash *, #splash { animation: none !important; transition: opacity .2s !important; } }
+
+/* Fiche reprise */
+.r-kpi { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+.r-kpi > div { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px; display: grid; gap: 4px; min-width: 0; }
+.r-kpi span { color: var(--muted); font-size: 12px; }
+.r-kpi strong { font-size: 17px; }
+.r-hausse { align-items: center; gap: 4px; }
+.r-hausse input { width: 64px; min-width: 0; padding: 6px 8px; }
+.r-fourchette { border-radius: 14px; padding: 12px 14px; margin-bottom: 10px; background: color-mix(in srgb, var(--primary) 8%, var(--card)); border: 1px solid color-mix(in srgb, var(--primary) 35%, var(--line)); display: grid; gap: 4px; }
+.r-fourchette > div { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.r-fourchette strong { font-size: 20px; color: var(--primary); }
+.r-prix { font-size: 20px !important; font-weight: 700; }
+#reprise-body .inline .chip { white-space: nowrap; }

@@ -84,9 +84,11 @@ const DISPONIBLE = ['En préparation', 'En stock'];
 const TYPES = ['', 'Citadine', 'Berline', 'Break', 'SUV / 4x4', 'Monospace', 'Coupé / Cabriolet', 'Utilitaire', 'Pick-up'];
 // Véhicules : deux vues. « Stock » (pas d'ajout direct, on y entre par une reprise validée) et « Reprises ».
 let vueVehicule = 'stock';
+// Stock : deux sous-onglets, « En stock » et « Préparation » (reprises validées en cours de remise en état).
+let vueStock = 'stock';
 const filtresStock = { statut: 'Disponibles', couleur: '', type: '', anneeMin: '', anneeMax: '', kmMax: '' };
 const STATUTS_STOCK = {
-  'Disponibles': v => DISPONIBLE.includes(v.statut),
+  'Disponibles': v => v.statut === 'En stock',
   'Réservés': v => v.statut === 'Réservé',
   'Vendus': v => v.statut === 'Vendu',
   'Tout le stock': v => !REPRISE.includes(v.statut),
@@ -217,8 +219,9 @@ const TABS = {
     sort: (a, b) => (b.creeLe || '').localeCompare(a.creeLe || ''),
     filter: v => {
       if (vueVehicule === 'reprises') return STATUTS_REPRISE[filtreReprise](v);
+      if (vueStock === 'preparation') return v.statut === 'En préparation';
       const f = filtresStock;
-      return STATUTS_STOCK[f.statut](v)
+      return STATUTS_STOCK[f.statut](v) && v.statut !== 'En préparation'
         && (!f.couleur || norm(v.couleur) === norm(f.couleur))
         && (!f.type || v.type === f.type)
         && (!f.anneeMin || num(v.annee) >= num(f.anneeMin))
@@ -389,7 +392,7 @@ function render() {
     : `<div class="empty">${ILLUS[ONGLETS[onglet].icon]}<strong>${t1}</strong><span>${t2}</span></div>`;
 }
 
-const sigFiltres = () => onglet + JSON.stringify(filtresStock) + filtreReprise + filtreRdv + vueCommande + db.all('commandes').map(o => o.statut).join()
+const sigFiltres = () => onglet + vueStock + JSON.stringify(filtresStock) + filtreReprise + filtreRdv + vueCommande + db.all('commandes').map(o => o.statut).join()
   + db.all('vehicules').map(v => v.statut + v.couleur).join() + db.all('planning').map(r => r.date + r.fait).join();
 
 // Calendrier de la semaine : un clic sur un jour ajoute un évènement à cette date.
@@ -451,6 +454,10 @@ function renderFiltres() {
     html += `<div class="chips">${Object.keys(STATUTS_REPRISE).map(f =>
       `<button type="button" data-reprise="${f}" class="chip${f === filtreReprise ? ' active' : ''}">${f} (${all.filter(STATUTS_REPRISE[f]).length})</button>`).join('')}</div>`;
   } else {
+    const nPrep = all.filter(v => v.statut === 'En préparation').length;
+    html += `<div class="segmented">${[['stock', 'En stock'], ['preparation', `Préparation (${nPrep})`]].map(([k, l]) =>
+      `<button type="button" data-vuestock="${k}" class="${k === vueStock ? 'active' : ''}">${l}</button>`).join('')}</div>`;
+    if (vueStock === 'preparation') { box.innerHTML = html; return; }
     const f = filtresStock;
     const couleurs = [''].concat([...new Set(all.filter(v => !REPRISE.includes(v.statut) && v.couleur).map(v => v.couleur.trim()))].sort());
     html += `<div class="filtres">
@@ -582,6 +589,8 @@ function openForm(id, preset = {}) {
   $('#form-extra').innerHTML = current === 'vehicules' && (!id || row.statut === 'Reprise à étudier')
     ? `<button type="button" id="btn-refuser" class="danger">Refuser la reprise</button>
        <button type="button" id="btn-valider" class="success">Valider → entrer en stock</button>`
+    : current === 'vehicules' && id && row.statut === 'En préparation'
+    ? `<button type="button" id="btn-pret" class="success">Prêt → en stock</button>`
     : current === 'commandes' && id && ETAPE_SUIVANTE[row.statut]
     ? `<button type="button" id="btn-etape" class="success" data-statut="${ETAPE_SUIVANTE[row.statut][1]}">${ETAPE_SUIVANTE[row.statut][0]}</button>`
     : '';
@@ -592,6 +601,12 @@ function openForm(id, preset = {}) {
 }
 
 function wireVehicule() {
+  $('#btn-pret')?.addEventListener('click', () => {
+    $('#f-statut').value = 'En stock';
+    if (!$('#f-dateEntree').value) $('#f-dateEntree').value = today();
+    $('#form').requestSubmit();
+    toast('Véhicule prêt : il passe en stock');
+  });
   $('#btn-valider')?.addEventListener('click', () => {
     // Reprise validée : le prix proposé devient le prix d'achat, le véhicule entre en stock.
     if (!$('#f-prixAchat').value) $('#f-prixAchat').value = $('#f-prixPropose').value;
@@ -677,7 +692,7 @@ function wireClient() {
     apresEnregistrement = saved => {
       filtreReprise = 'À étudier';
       switchTab('reprises');
-      openForm(null, { vendeurId: saved.id });
+      Reprise.ouvrir(null, { vendeurId: saved.id });
     };
     $('#form').requestSubmit();
   });
@@ -754,6 +769,10 @@ $('#btn-menu').addEventListener('click', () => {
   $('#set-cv').value = ro.prixCV;
   $('#set-dem').value = ro.demarches;
   $('#set-prot').value = ro.protection;
+  const rr = Reprise.reglages();
+  $('#set-hausse').value = rr.hausseReunion;
+  $('#set-marge-min').value = rr.margeMin;
+  $('#set-marge-max').value = rr.margeMax;
   const sb = Sync.settings();
   $('#set-sb-url').value = sb.url || '';
   $('#set-sb-cle').value = sb.cle || '';
@@ -795,6 +814,12 @@ $('#sync-pill').addEventListener('click', () => $('#btn-menu').click());
 $('#btn-save-offre').addEventListener('click', () => {
   Offre.saveReglages({ ...Offre.reglages(), prixCV: num($('#set-cv').value) || 60, demarches: num($('#set-dem').value), protection: num($('#set-prot').value) });
   toast('Montants des offres enregistrés');
+});
+
+$('#btn-save-reprise').addEventListener('click', () => {
+  const min = num($('#set-marge-min').value), max = num($('#set-marge-max').value);
+  Reprise.saveReglages({ hausseReunion: num($('#set-hausse').value), margeMin: Math.min(min, max), margeMax: Math.max(min, max) });
+  toast('Réglages de reprise enregistrés');
 });
 
 $('#btn-save-plaque').addEventListener('click', () => {
@@ -839,6 +864,7 @@ $('#filters').addEventListener('click', e => {
   if (!b) return;
   if (b.dataset.rdv) filtreRdv = b.dataset.rdv;
   else if (b.dataset.vuecmd) vueCommande = b.dataset.vuecmd;
+  else if (b.dataset.vuestock) vueStock = b.dataset.vuestock;
   else if (b.dataset.reprise) filtreReprise = b.dataset.reprise;
   else if (b.id === 'btn-reset-filtres') Object.assign(filtresStock, { statut: 'Disponibles', couleur: '', type: '', anneeMin: '', anneeMax: '', kmMax: '' });
   else return;
@@ -852,7 +878,7 @@ $('#filters').addEventListener('input', e => {
   $('#filters').dataset.vue = sigFiltres();
   render();
 });
-$('#btn-add').addEventListener('click', () => (onglet === 'commandes' ? Offre.ouvrir() : openForm(null)));
+$('#btn-add').addEventListener('click', () => (onglet === 'commandes' ? Offre.ouvrir() : onglet === 'reprises' ? Reprise.ouvrir() : openForm(null)));
 $('#list').addEventListener('click', e => {
   const sem = e.target.closest('[data-sem]');
   if (sem) {
@@ -869,6 +895,7 @@ $('#list').addEventListener('click', e => {
   const card = e.target.closest('.card');
   if (!card) return;
   if (current === 'commandes' && db.get('commandes', card.dataset.id)?.statut === 'Offre') Offre.ouvrir(card.dataset.id);
+  else if (current === 'vehicules' && REPRISE.includes(db.get('vehicules', card.dataset.id)?.statut)) Reprise.ouvrir(card.dataset.id);
   else openForm(card.dataset.id);
 });
 
@@ -899,6 +926,7 @@ switchTab('clients');
 // iOS ignore parfois user-scalable=no : on bloque aussi le geste de pincement.
 document.addEventListener('gesturestart', e => e.preventDefault());
 Offre.init();
+Reprise.init();
 // Écran de lancement : court (environ 1 s), puis fondu vers l'appli.
 setTimeout(() => {
   const splash = $('#splash');

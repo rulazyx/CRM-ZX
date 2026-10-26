@@ -79,6 +79,22 @@
   </div>
 </dialog>
 
+<dialog id="dlg-reprise" class="plein">
+  <div class="o-page">
+    <div class="o-tete"><h2 id="reprise-titre">Nouvelle reprise</h2>
+      <button type="button" id="r-btn-fermer" class="ghost-dark" aria-label="Fermer">✕</button></div>
+    <div id="reprise-body" class="o-body"></div>
+    <div class="actions o-actions">
+      <button type="button" id="r-btn-supprimer" class="danger">Supprimer</button>
+      <button type="button" id="r-btn-refuser" class="danger">Refuser</button>
+      <span class="spacer"></span>
+      <button type="button" id="r-btn-enregistrer">Enregistrer</button>
+      <button type="button" id="r-btn-suivant" class="primary">Créer et coter →</button>
+      <button type="button" id="r-btn-valider" class="success">Valider la reprise → préparation</button>
+    </div>
+  </div>
+</dialog>
+
 <dialog id="dlg-menu">
   <form method="dialog">
     <h2>Synchronisation PC / téléphone</h2>
@@ -114,6 +130,14 @@
       <div class="field"><label for="set-prot">Protection de peinture (€)</label><input id="set-prot" type="number" inputmode="decimal"></div>
       <button type="button" id="btn-save-offre" style="align-self:end">Enregistrer</button>
     </div>
+    <h2 style="margin-top:20px">Reprises : calcul de la fourchette</h2>
+    <p class="muted">Hausse des prix à La Réunion par rapport aux cotes métropole, et marge visée sur la revente.</p>
+    <div class="grid">
+      <div class="field"><label for="set-hausse">Hausse Réunion (%)</label><input id="set-hausse" type="number" inputmode="decimal"></div>
+      <div class="field"><label for="set-marge-min">Marge min (%)</label><input id="set-marge-min" type="number" inputmode="decimal"></div>
+      <div class="field"><label for="set-marge-max">Marge max (%)</label><input id="set-marge-max" type="number" inputmode="decimal"></div>
+      <button type="button" id="btn-save-reprise" style="align-self:end">Enregistrer</button>
+    </div>
     <h2 style="margin-top:20px">Sauvegarde</h2>
     <p class="muted">Pour l'instant, les données restent dans ce navigateur, sur cet appareil.
       Pense à exporter une sauvegarde de temps en temps.</p>
@@ -133,6 +157,7 @@
 <script src="plaque.js"></script>
 <script src="sync.js"></script>
 <script src="offre.js"></script>
+<script src="reprise.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
