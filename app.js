@@ -848,7 +848,7 @@ function afficherAuth(status, user, role) {
   if (!bloque) return;
   const refuse = status === 'refuse';
   $('#auth-texte').textContent = !config ? "L'appli n'est pas encore reliée à sa base : ouvre Réglages techniques ci-dessous."
-    : refuse ? `Le compte ${user.email} n'est rattaché à aucun garage. Contacte ton administrateur.`
+    : refuse ? `Le compte ${user.email} n'est rattaché à aucun garage. Contacte ton administrateur. (Administrateur : relance le script supabase.sql avec exactement cet email à la place de TON_EMAIL_ICI, puis reconnecte-toi.)`
     : status === 'erreur' && user ? 'Connexion à la base impossible. Vérifie le réseau, ou que le script supabase.sql a bien été lancé.'
     : nouveau ? 'Première connexion : choisis ton mot de passe (8 caractères minimum).'
     : 'Connecte-toi pour accéder au CRM.';
