@@ -1,6 +1,6 @@
 // Comptes et synchronisation entre appareils via Supabase (base en ligne gratuite).
-// Toutes les données du garage tiennent dans une seule ligne JSON (table crm_garage), partagée par l'équipe.
-// Seuls les emails ajoutés par l'admin (table crm_membres) y ont accès. Chaque fiche garde sa date de
+// Chaque garage est une entreprise : toutes ses données tiennent dans sa ligne JSON (table crm_entreprises),
+// partagée par son équipe et invisible des autres garages. Les comptes de l'équipe sont dans crm_membres. Chaque fiche garde sa date de
 // modification : quand deux appareils modifient en même temps, on fusionne fiche par fiche.
 // L'adresse et la clé publique se saisissent dans les réglages (ou via le QR code d'installation) :
 // rien n'est écrit dans le dépôt.
@@ -10,6 +10,7 @@ const Sync = (() => {
   let client = null;
   let user = null;
   let role = null;
+  let entreprise = null; // { id, nom }
   let timer = null;
   let enCours = null;
   let onChange = () => {};
@@ -23,6 +24,7 @@ const Sync = (() => {
   }
   const configure = () => { const s = settings(); return !!(s.url && s.cle); };
   function setStatus(s) { status = s; onChange(s, user, role); }
+  const ligne = () => client.from('crm_entreprises');
 
   // Lien d'installation : https://…/#config=… règle l'adresse et la clé publique d'un nouvel appareil.
   function lireLienConfig() {
@@ -52,7 +54,7 @@ const Sync = (() => {
       const avant = user;
       user = session?.user || null;
       if (user && (!avant || avant.id !== user.id)) setTimeout(demarrer);
-      if (!user) { role = null; setStatus('off'); }
+      if (!user) { role = null; entreprise = null; setStatus('off'); }
     });
     client.auth.getSession().then(({ data }) => {
       user = data.session?.user || null;
@@ -66,11 +68,12 @@ const Sync = (() => {
     setStatus('connexion');
     const { data, error } = await client.rpc('crm_moi');
     if (error) { console.error(error); setStatus('erreur'); return; }
-    role = data;
-    if (!role) { setStatus('refuse'); return; }
+    if (!data || !data.role) { role = null; setStatus('refuse'); return; }
+    role = data.role;
+    entreprise = { id: data.entreprise_id, nom: data.nom };
     await pull();
-    client.channel('garage')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'crm_garage' }, () => pull())
+    client.channel('entreprise')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'crm_entreprises', filter: 'id=eq.' + entreprise.id }, () => pull())
       .subscribe();
   }
 
@@ -80,10 +83,13 @@ const Sync = (() => {
     if (error) throw new Error(/invalid login/i.test(error.message) ? 'Email ou mot de passe incorrect.'
       : /not confirmed/i.test(error.message) ? "Confirme d'abord ton email avec le lien reçu." : error.message);
   }
-  async function creerCompte(email, motDePasse) {
+  async function creerCompte(email, motDePasse, nomEntreprise) {
     if (!client) throw new Error("Enregistre d'abord l'adresse et la clé Supabase.");
     if ((motDePasse || '').length < 8) throw new Error('Le mot de passe doit faire au moins 8 caractères.');
-    const { data, error } = await client.auth.signUp({ email, password: motDePasse, options: { emailRedirectTo: location.origin + location.pathname } });
+    const { data, error } = await client.auth.signUp({
+      email, password: motDePasse,
+      options: { emailRedirectTo: location.origin + location.pathname, data: { entreprise: (nomEntreprise || '').trim() } },
+    });
     if (error) throw new Error(/already registered/i.test(error.message) ? 'Ce compte existe déjà : connecte-toi.' : error.message);
     return !data.session; // true : un email de confirmation a été envoyé
   }
@@ -100,7 +106,7 @@ const Sync = (() => {
 
   async function deconnecter() {
     if (client) await client.auth.signOut();
-    user = null; role = null;
+    user = null; role = null; entreprise = null;
     setStatus('off');
   }
 
@@ -110,6 +116,9 @@ const Sync = (() => {
     Object.entries(local.supprimes || {}).forEach(([id, d]) => { if (!supprimes[id] || d > supprimes[id]) supprimes[id] = d; });
     const out = { ...distant, ...local, supprimes, seq: Math.max(num(local.seq), num(distant.seq)) };
     const date = r => r.majLe || r.creeLe || '';
+    // Paramètres du garage : la version modifiée en dernier gagne.
+    out.parametres = date(local.parametres || {}) >= date(distant.parametres || {}) ? local.parametres : distant.parametres;
+    if (!out.parametres) delete out.parametres;
     TABLES.forEach(t => {
       const m = new Map((distant[t] || []).map(r => [r.id, r]));
       (local[t] || []).forEach(r => { const d = m.get(r.id); if (!d || date(r) > date(d)) m.set(r.id, r); });
@@ -117,14 +126,15 @@ const Sync = (() => {
     });
     return out;
   }
-  const memes = (a, b) => TABLES.every(t => JSON.stringify(a[t] || []) === JSON.stringify(b[t] || []));
+  const memes = (a, b) => TABLES.every(t => JSON.stringify(a[t] || []) === JSON.stringify(b[t] || []))
+    && JSON.stringify(a.parametres || null) === JSON.stringify(b.parametres || null);
 
   // Récupère la version en ligne, la fusionne avec celle de l'appareil, renvoie le résultat si besoin.
   function pull() {
     if (!client || !role) return Promise.resolve();
     if (enCours) return enCours;
     enCours = (async () => {
-      const { data, error } = await client.from('crm_garage').select('data, updated_at').eq('id', 'garage').maybeSingle();
+      const { data, error } = await ligne().select('data, updated_at').eq('id', entreprise.id).maybeSingle();
       if (error) { console.error(error); setStatus('erreur'); return; }
       const distant = data?.data || {};
       const fusionne = fusion(db.data, distant);
@@ -133,7 +143,7 @@ const Sync = (() => {
         db.save(true);
         render();
       }
-      if (!data || !memes(fusionne, distant)) await envoyer(fusionne);
+      if (!memes(fusionne, distant)) await envoyer(fusionne);
       else setStatus('ok');
     })().finally(() => { enCours = null; });
     return enCours;
@@ -141,7 +151,7 @@ const Sync = (() => {
 
   async function envoyer(donnees) {
     setStatus('envoi');
-    const { error } = await client.from('crm_garage').upsert({ id: 'garage', data: donnees, updated_at: new Date().toISOString() });
+    const { error } = await ligne().update({ data: donnees, updated_at: new Date().toISOString() }).eq('id', entreprise.id);
     if (error) { console.error(error); setStatus('erreur'); return; }
     setStatus('ok');
   }
@@ -160,8 +170,14 @@ const Sync = (() => {
     return data;
   }
   async function ajouterMembre(email, r) {
-    const { error } = await client.from('crm_membres').upsert({ email: email.trim().toLowerCase(), role: r });
-    if (error) throw new Error(error.message);
+    const { error } = await client.from('crm_membres').insert({ email: email.trim().toLowerCase(), role: r, entreprise_id: entreprise.id });
+    if (error) throw new Error(error.code === '23505' ? 'Cet email a déjà un compte (dans ton équipe ou dans un autre garage).' : error.message);
+  }
+  // Nom affiché de l'entreprise (modifiable dans Paramètres).
+  async function renommer(nom) {
+    if (!entreprise || !nom) return;
+    entreprise.nom = nom;
+    await ligne().update({ nom }).eq('id', entreprise.id);
   }
   async function retirerMembre(email) {
     const { error } = await client.from('crm_membres').delete().eq('email', email);
@@ -170,7 +186,7 @@ const Sync = (() => {
 
   return {
     init, settings, saveSettings, configure, lienConfig, connecter, creerCompte, motDePasseOublie, nouveauMotDePasse,
-    deconnecter, changed, pull, membres, ajouterMembre, retirerMembre,
-    get client() { return client; }, get user() { return user; }, get role() { return role; }, get status() { return status; },
+    deconnecter, changed, pull, membres, ajouterMembre, retirerMembre, renommer,
+    get entreprise() { return entreprise; }, get client() { return client; }, get user() { return user; }, get role() { return role; }, get status() { return status; },
   };
 })();

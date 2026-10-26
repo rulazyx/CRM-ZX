@@ -371,6 +371,7 @@ const ONGLETS = {
   reprises: { table: 'vehicules', icon: 'reprise', label: 'Reprise', placeholder: 'Modèle, plaque, vendeur…' },
   planning: { table: 'planning', icon: 'planning', label: 'Planning', placeholder: 'Client, véhicule, type…' },
   donnees: { table: null, icon: 'donnees', label: 'Données', placeholder: '' },
+  parametres: { table: null, icon: 'reglages', label: 'Paramètres', placeholder: '' },
 };
 let onglet = 'clients';
 
@@ -380,6 +381,7 @@ let editing = null;
 
 function render() {
   if (onglet === 'donnees') { renderFiltres(); Donnees.rendre(); return; }
+  if (onglet === 'parametres') { renderFiltres(); return; }
   const tab = TABS[current];
   const q = norm($('#search').value.trim());
   renderFiltres();
@@ -448,7 +450,7 @@ function renderFiltres() {
   add.style.display = onglet === 'stock' ? 'none' : '';
   add.innerHTML = icon('plus', 18) + '<span>' + (onglet === 'reprises' ? 'Nouvelle reprise' : onglet === 'planning' ? 'Nouveau RDV' : onglet === 'commandes' ? 'Nouvelle offre' : 'Ajouter') + '</span>';
   add.style.display = onglet === 'stock' || (onglet === 'commandes' && vueCommande !== 'Offres') ? 'none' : '';
-  if (onglet === 'donnees') add.style.display = 'none';
+  if (!ONGLETS[onglet].table) add.style.display = 'none';
   if (!['stock', 'reprises', 'planning', 'commandes'].includes(onglet)) { box.innerHTML = ''; box.dataset.vue = ''; return; }
   const all = db.all('vehicules');
   const opt = (list, val) => list.map(o => `<option value="${esc(o)}"${o === val ? ' selected' : ''}>${esc(o || 'Tous')}</option>`).join('');
@@ -496,6 +498,7 @@ function switchTab(name) {
   document.querySelectorAll('[data-tab]').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
   $('#search').value = '';
   $('#search').placeholder = ONGLETS[name].placeholder;
+  if (name === 'parametres') remplirParametres();
   render();
 }
 
@@ -783,19 +786,13 @@ $('#btn-cancel').addEventListener('click', () => $('#dlg').close());
 $('#dlg').addEventListener('close', () => { apresEnregistrement = null; ficheEnCours = null; imageEnCours = null; });
 
 // ---------- Sauvegarde ----------
-$('#btn-menu').addEventListener('click', () => {
+// Onglet Paramètres : réglages du garage (partagés) et de cet appareil.
+function remplirParametres() {
+  Param.rendre();
   const s = Plaque.settings();
   $('#set-cle').value = s.cle;
   $('#set-host').value = s.host;
   $('#set-token').value = s.token;
-  const ro = Offre.reglages();
-  $('#set-cv').value = ro.prixCV;
-  $('#set-dem').value = ro.demarches;
-  $('#set-prot').value = ro.protection;
-  const rr = Reprise.reglages();
-  $('#set-hausse').value = rr.hausseReunion;
-  $('#set-marge-min').value = rr.margeMin;
-  $('#set-marge-max').value = rr.margeMax;
   const sb = Sync.settings();
   $('#set-sb-url').value = sb.url || '';
   $('#set-sb-cle').value = sb.cle || '';
@@ -804,8 +801,8 @@ $('#btn-menu').addEventListener('click', () => {
   afficherQr();
   majInstall();
   $('#set-usage').textContent = `${Plaque.usageCeMois()} recherche(s) par plaque ce mois-ci sur cet appareil (10 gratuites par mois avec l'offre Basic).`;
-  $('#dlg-menu').showModal();
-});
+}
+$('#btn-menu').addEventListener('click', () => switchTab('parametres'));
 
 // ---------- Comptes et synchronisation ----------
 const SYNC_TEXTE = { off: 'Non connecté', connexion: 'Connexion…', ok: 'Synchronisé', envoi: 'Envoi…', erreur: 'Erreur de synchro', refuse: 'Accès en attente', 'nouveau-mdp': 'Nouveau mot de passe' };
@@ -822,6 +819,11 @@ function afficherSync(status, user, role) {
   $('#equipe').hidden = role !== 'admin';
   $('#reglages-supabase').open = !Sync.configure();
   if (role) etaitConnecte = true;
+  // Nom donné à l'inscription : repris dans les infos du garage s'il n'y est pas encore (après la synchro).
+  if (status === 'ok' && Sync.entreprise?.nom && !Param.get().garage.nom) {
+    Param.save({ garage: { ...Param.get().garage, nom: Sync.entreprise.nom } });
+    if (onglet === 'donnees') render();
+  }
   // Déconnexion : les données quittent l'appareil (elles restent en ligne).
   if (!user && etaitConnecte) { etaitConnecte = false; db.vider(); render(); }
   afficherAuth(status, user, role);
@@ -838,14 +840,15 @@ function afficherAuth(status, user, role) {
   const refuse = status === 'refuse';
   const textes = {
     connexion: ['Connecte-toi pour accéder au CRM.', 'Se connecter'],
-    creer: ["Crée ton compte avec l'email ajouté par ton admin (le tout premier compte devient admin).", 'Créer mon compte'],
+    creer: ["Crée le compte de ton garage : tu en seras l'admin. Invité par ton garage ? Utilise l'email qu'il a ajouté, tu rejoindras son équipe.", 'Créer mon compte'],
     'nouveau-mdp': ['Choisis ton nouveau mot de passe (8 caractères minimum).', 'Enregistrer'],
   };
   $('#auth-texte').textContent = refuse
-    ? `Le compte ${user.email} n'est pas encore autorisé. Demande à ton admin d'ajouter cet email dans ⚙️ > Équipe, puis reconnecte-toi.`
+    ? `Le compte ${user.email} n'est rattaché à aucun garage. Demande à ton admin d'ajouter cet email dans Paramètres > Équipe, puis reconnecte-toi.`
     : status === 'erreur' && user ? 'Connexion à la base impossible. Vérifie le réseau, ou que le script supabase.sql a bien été lancé.' : textes[modeAuth][0];
   $('#auth-ok').textContent = textes[modeAuth][1];
   $('#auth-champ-email').hidden = refuse || modeAuth === 'nouveau-mdp';
+  $('#auth-champ-entreprise').hidden = refuse || modeAuth !== 'creer';
   $('#auth-champ-mdp').hidden = refuse;
   $('#auth-ok').hidden = refuse;
   $('#auth-mdp').autocomplete = modeAuth === 'connexion' ? 'current-password' : 'new-password';
@@ -865,7 +868,9 @@ $('#auth-form').addEventListener('submit', async e => {
   try {
     if (modeAuth === 'connexion') await Sync.connecter(email, mdp);
     else if (modeAuth === 'creer') {
-      const confirmer = await Sync.creerCompte(email, mdp);
+      const nomEntreprise = $('#auth-entreprise').value.trim();
+      if (!nomEntreprise) { toast("Saisis le nom de ton entreprise."); $('#auth-entreprise').focus(); return; }
+      const confirmer = await Sync.creerCompte(email, mdp, nomEntreprise);
       modeAuth = 'connexion';
       if (confirmer) { afficherAuth('off'); $('#auth-texte').textContent = `Compte créé. Ouvre l'email envoyé à ${email} pour le confirmer, puis connecte-toi ici.`; }
     } else {
@@ -893,7 +898,7 @@ $('#btn-save-sync').addEventListener('click', () => {
   toast('Réglages enregistrés, rechargement…');
   setTimeout(() => location.reload(), 800);
 });
-$('#btn-deconnexion').addEventListener('click', () => { $('#dlg-menu').close(); Sync.deconnecter(); });
+$('#btn-deconnexion').addEventListener('click', () => Sync.deconnecter());
 $('#sync-pill').addEventListener('click', () => $('#btn-menu').click());
 
 // Équipe : l'admin ajoute ou retire les emails autorisés.
@@ -962,16 +967,6 @@ $('#btn-copier-lien').addEventListener('click', async () => {
 });
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
 
-$('#btn-save-offre').addEventListener('click', () => {
-  Offre.saveReglages({ ...Offre.reglages(), prixCV: num($('#set-cv').value) || 60, demarches: num($('#set-dem').value), protection: num($('#set-prot').value) });
-  toast('Montants des offres enregistrés');
-});
-
-$('#btn-save-reprise').addEventListener('click', () => {
-  const min = num($('#set-marge-min').value), max = num($('#set-marge-max').value);
-  Reprise.saveReglages({ hausseReunion: num($('#set-hausse').value), margeMin: Math.min(min, max), margeMax: Math.max(min, max) });
-  toast('Réglages de reprise enregistrés');
-});
 
 $('#btn-save-plaque').addEventListener('click', () => {
   Plaque.saveSettings({ cle: $('#set-cle').value.trim(), host: $('#set-host').value.trim() || Plaque.DEFAULT_HOST, token: $('#set-token').value.trim() });
@@ -997,8 +992,7 @@ $('#file-import').addEventListener('change', async e => {
     if (!confirm('Remplacer toutes les données actuelles par cette sauvegarde ?')) return;
     db.data = Object.assign({ seq: 0 }, data);
     db.save();
-    $('#dlg-menu').close();
-    render();
+    switchTab('donnees');
     toast('Sauvegarde importée');
   } catch (err) {
     toast("Ce fichier n'est pas une sauvegarde CRM ZX valide.");
@@ -1039,6 +1033,8 @@ $('#list').addEventListener('click', e => {
     render();
     return;
   }
+  const aller = e.target.closest('[data-aller]');
+  if (aller) { switchTab(aller.dataset.aller); return; }
   const anc = e.target.closest('[data-vehicule]');
   if (anc) { switchTab('stock'); openForm(anc.dataset.vehicule); return; }
   const souf = e.target.closest('[data-client]');
@@ -1077,12 +1073,13 @@ $('#btn-loupe').addEventListener('click', () => {
   if (rechercheOuverte) $('#search').focus();
 });
 $('#search-ico').innerHTML = icon('recherche', 18);
-switchTab('clients');
+switchTab('donnees');
 // iOS ignore parfois user-scalable=no : on bloque aussi le geste de pincement.
 document.addEventListener('gesturestart', e => e.preventDefault());
 Offre.init();
 Reprise.init();
 Photos.init();
+Param.init();
 let redim = null;
 window.addEventListener('resize', () => { clearTimeout(redim); if (onglet === 'donnees') redim = setTimeout(render, 150); });
 $('#dlg-photos').addEventListener('close', () => {

@@ -2,17 +2,8 @@
 // 1) les infos minimales pour coter le véhicule (comme sur La Centrale / Leboncoin),
 // 2) la fiche reprise : cote, frais, hausse Réunion, fourchette de reprise et prix saisi à la main.
 const Reprise = (() => {
-  const KEY = 'crmzx-reprise';
-  // Valeurs de départ, modifiables dans ⚙️ : hausse des prix à La Réunion par rapport aux cotes métropole,
-  // et marge visée par le marchand (sert à calculer la fourchette de reprise).
-  const DEFAUTS = { hausseReunion: 10, margeMin: 10, margeMax: 20 };
-
-  function reglages() {
-    try { return { ...DEFAUTS, ...(JSON.parse(localStorage.getItem(KEY)) || {}) }; } catch (e) { return { ...DEFAUTS }; }
-  }
-  function saveReglages(r) {
-    try { localStorage.setItem(KEY, JSON.stringify(r)); } catch (e) { /* stockage indisponible */ }
-  }
+  // Hausse des prix à La Réunion et marge visée : réglées dans Paramètres, partagées par l'équipe.
+  const reglages = () => Param.get().reprise;
 
   const CARBURANTS = ['', 'Essence', 'Diesel', 'Hybride', 'Hybride rechargeable', 'Électrique', 'GPL'];
   const BOITES = ['', 'Manuelle', 'Automatique'];
@@ -225,5 +216,5 @@ const Reprise = (() => {
     $('#r-btn-fermer').addEventListener('click', () => { $('#dlg-reprise').close(); render(); });
   }
 
-  return { ouvrir, init, reglages, saveReglages };
+  return { ouvrir, init, reglages };
 })();

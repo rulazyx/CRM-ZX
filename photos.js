@@ -85,7 +85,7 @@ const Photos = (() => {
     for (const f of lot) {
       try {
         const blob = await reduire(f);
-        const chemin = `${vehiculeId}/${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}.jpg`;
+        const chemin = `${Sync.entreprise.id}/${vehiculeId}/${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}.jpg`;
         const { error } = await Sync.client.storage.from(BUCKET).upload(chemin, blob, { contentType: 'image/jpeg' });
         if (error) throw new Error(error.message);
         const actuel = db.get('vehicules', vehiculeId);

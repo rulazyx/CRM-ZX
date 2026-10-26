@@ -74,6 +74,7 @@ const Donnees = (() => {
 
   // Barres groupées CA / bénéfice sur 6 mois (une seule échelle, en euros).
   function graphMois(serie, largeur) {
+    if (!serie.some(s => s.ca || s.benef)) return '<p class="hint viz-vide">Aucune vente livrée sur les 6 derniers mois : le graphique se remplira avec les premières livraisons.</p>';
     // Dessiné à la largeur réelle de l'écran pour garder des textes lisibles sur téléphone.
     const W = Math.max(280, Math.round(largeur || 640)), H = W < 500 ? 200 : 240, g = { l: 44, r: 6, t: 12, b: 26 };
     const max = Math.max(1, ...serie.map(s => Math.max(s.ca, s.benef)));
@@ -119,7 +120,12 @@ const Donnees = (() => {
   function rendre() {
     const d = calculer();
     const m = MOIS[new Date().getMonth()];
+    const g = Param.get().garage;
+    const date = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
     $('#list').innerHTML = `<div class="donnees">
+      <div class="accueil-tete">${g.logo ? `<img src="${esc(g.logo)}" alt="">` : ''}
+        <div><h2>${g.nom ? esc(g.nom) : 'Ton garage'}</h2>
+        <span class="muted">${esc([g.ville, date].filter(Boolean).join(' · '))}${g.nom ? '' : ' · <button type="button" class="lien" data-aller="parametres">Renseigne le nom de ton entreprise</button>'}</span></div></div>
       <div class="kpis">
         ${tuile('Véhicules en stock', d.enStock, `+ ${d.enPrepa} en prépa · ${d.reserves} réservé(s)`)}
         ${tuile('Rotation moyenne', d.rotation === null ? '—' : d.rotation + ' j', d.nbRot ? `entrée en stock → vente, sur ${d.nbRot} vente(s) en 12 mois` : 'Apparaît après la première vente livrée')}
