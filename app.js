@@ -373,7 +373,7 @@ function render() {
   if (onglet === 'planning' && filtreRdv === 'Semaine') { renderSemaine(rows); return; }
   const total = db.all(current).length;
   const n = rows.length;
-  const titre = { stock: 'véhicule', reprises: 'reprise', planning: 'rendez-vous' }[onglet] || tab.titre;
+  const titre = { stock: 'véhicule', reprises: 'reprise', planning: 'rendez-vous', commandes: { Offres: 'offre', Commandes: 'commande', Livraisons: 'livraison', 'Annulées': 'annulée' }[vueCommande] }[onglet] || tab.titre;
   $('#count').textContent = (tab.filter || n !== total) ? `${n} ${titre}${n > 1 && titre !== 'rendez-vous' ? 's' : ''}` : `${total} ${titre}${total > 1 ? 's' : ''}`;
   const q2 = $('#search').value.trim();
   const vide = {
@@ -465,8 +465,13 @@ function renderFiltres() {
   box.innerHTML = html;
 }
 
+let rechercheOuverte = false;
+
 function switchTab(name) {
   onglet = name;
+  document.body.dataset.onglet = name;
+  rechercheOuverte = false;
+  majLoupe();
   current = ONGLETS[name].table;
   if (current === 'vehicules') vueVehicule = name;
   document.querySelectorAll('[data-tab]').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
@@ -745,6 +750,10 @@ $('#btn-menu').addEventListener('click', () => {
   $('#set-cle').value = s.cle;
   $('#set-host').value = s.host;
   $('#set-token').value = s.token;
+  const ro = Offre.reglages();
+  $('#set-cv').value = ro.prixCV;
+  $('#set-dem').value = ro.demarches;
+  $('#set-prot').value = ro.protection;
   const sb = Sync.settings();
   $('#set-sb-url').value = sb.url || '';
   $('#set-sb-cle').value = sb.cle || '';
@@ -782,6 +791,11 @@ $('#btn-connexion').addEventListener('click', async () => {
 });
 $('#btn-deconnexion').addEventListener('click', () => Sync.deconnecter());
 $('#sync-pill').addEventListener('click', () => $('#btn-menu').click());
+
+$('#btn-save-offre').addEventListener('click', () => {
+  Offre.saveReglages({ ...Offre.reglages(), prixCV: num($('#set-cv').value) || 60, demarches: num($('#set-dem').value), protection: num($('#set-prot').value) });
+  toast('Montants des offres enregistrés');
+});
 
 $('#btn-save-plaque').addEventListener('click', () => {
   Plaque.saveSettings({ cle: $('#set-cle').value.trim(), host: $('#set-host').value.trim() || Plaque.DEFAULT_HOST, token: $('#set-token').value.trim() });
@@ -838,7 +852,7 @@ $('#filters').addEventListener('input', e => {
   $('#filters').dataset.vue = sigFiltres();
   render();
 });
-$('#btn-add').addEventListener('click', () => openForm(null));
+$('#btn-add').addEventListener('click', () => (onglet === 'commandes' ? Offre.ouvrir() : openForm(null)));
 $('#list').addEventListener('click', e => {
   const sem = e.target.closest('[data-sem]');
   if (sem) {
@@ -853,7 +867,9 @@ $('#list').addEventListener('click', e => {
   const jour = e.target.closest('[data-jour]');
   if (jour) { openForm(null, { date: jour.dataset.jour }); return; }
   const card = e.target.closest('.card');
-  if (card) openForm(card.dataset.id);
+  if (!card) return;
+  if (current === 'commandes' && db.get('commandes', card.dataset.id)?.statut === 'Offre') Offre.ouvrir(card.dataset.id);
+  else openForm(card.dataset.id);
 });
 
 db.load();
@@ -863,9 +879,25 @@ document.querySelectorAll('[data-tab]').forEach(b => {
   b.innerHTML = icon(o.icon, b.closest('#bottom-tabs') ? 22 : 18) + '<span>' + o.label + '</span>';
 });
 $('#btn-menu').innerHTML = icon('reglages', 20);
+$('#btn-loupe').innerHTML = icon('recherche', 20);
+
+// Dans Commandes, la recherche est repliée derrière une loupe.
+function majLoupe() {
+  const replie = onglet === 'commandes';
+  $('#btn-loupe').hidden = !replie;
+  $('#btn-loupe').classList.toggle('active', rechercheOuverte);
+  document.querySelector('.search').hidden = replie && !rechercheOuverte;
+}
+$('#btn-loupe').addEventListener('click', () => {
+  rechercheOuverte = !rechercheOuverte;
+  if (!rechercheOuverte) { $('#search').value = ''; render(); }
+  majLoupe();
+  if (rechercheOuverte) $('#search').focus();
+});
 $('#search-ico').innerHTML = icon('recherche', 18);
 switchTab('clients');
 // iOS ignore parfois user-scalable=no : on bloque aussi le geste de pincement.
 document.addEventListener('gesturestart', e => e.preventDefault());
+Offre.init();
 Sync.init(afficherSync);
 afficherSync(Sync.status, Sync.user);

@@ -28,6 +28,7 @@
 
 <main>
   <div class="toolbar">
+    <button type="button" id="btn-loupe" class="loupe" aria-label="Rechercher" hidden></button>
     <div class="search"><span id="search-ico"></span><input id="search" type="search" placeholder="Rechercher…" autocomplete="off"></div>
     <button id="btn-add" class="primary"></button>
   </div>
@@ -58,6 +59,21 @@
   </form>
 </dialog>
 
+<dialog id="dlg-offre" class="plein">
+  <div class="o-page">
+    <div class="o-tete"><h2 id="offre-titre">Nouvelle offre</h2>
+      <button type="button" id="btn-offre-annuler" class="ghost-dark" aria-label="Fermer">✕</button></div>
+    <div id="offre-body" class="o-body"></div>
+    <div class="actions o-actions">
+      <button type="button" id="btn-offre-supprimer" class="danger">Supprimer</button>
+      <button type="button" id="btn-offre-imprimer">Imprimer / PDF</button>
+      <span class="spacer"></span>
+      <button type="button" id="btn-offre-accepter" class="success">Offre acceptée → commande</button>
+      <button type="button" id="btn-offre-enregistrer" class="primary">Enregistrer l'offre</button>
+    </div>
+  </div>
+</dialog>
+
 <dialog id="dlg-menu">
   <form method="dialog">
     <h2>Synchronisation PC / téléphone</h2>
@@ -85,6 +101,14 @@
       <span class="hint" id="set-usage"></span>
       <button type="button" id="btn-save-plaque">Enregistrer la clé</button>
     </div>
+    <h2 style="margin-top:20px">Offres : montants par défaut</h2>
+    <p class="muted">Carte grise : barème de La Réunion 2026 (60 €/CV, moitié prix après 10 ans, + 11 € de taxe fixe et 2,76 € d'acheminement). Seul le montant ANTS fait foi.</p>
+    <div class="grid">
+      <div class="field"><label for="set-cv">Prix du cheval fiscal (€)</label><input id="set-cv" type="number" step="0.01" inputmode="decimal"></div>
+      <div class="field"><label for="set-dem">Démarches administratives (€)</label><input id="set-dem" type="number" inputmode="decimal"></div>
+      <div class="field"><label for="set-prot">Protection de peinture (€)</label><input id="set-prot" type="number" inputmode="decimal"></div>
+      <button type="button" id="btn-save-offre" style="align-self:end">Enregistrer</button>
+    </div>
     <h2 style="margin-top:20px">Sauvegarde</h2>
     <p class="muted">Pour l'instant, les données restent dans ce navigateur, sur cet appareil.
       Pense à exporter une sauvegarde de temps en temps.</p>
@@ -103,6 +127,7 @@
 <script src="vin.js"></script>
 <script src="plaque.js"></script>
 <script src="sync.js"></script>
+<script src="offre.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
