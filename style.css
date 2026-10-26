@@ -376,3 +376,5 @@ body[data-onglet="commandes"] .toolbar .search[hidden] + #btn-add { flex: 1; jus
 .r-fourchette strong { font-size: 20px; color: var(--primary); }
 .r-prix { font-size: 20px !important; font-weight: 700; }
 #reprise-body .inline .chip { white-space: nowrap; }
+.seg-stock button { display: grid; gap: 1px; line-height: 1.15; padding: 6px 2px; font-size: 13px; }
+.seg-stock small { font-size: 12px; font-weight: 700; opacity: .75; }

@@ -86,12 +86,13 @@ const TYPES = ['', 'Citadine', 'Berline', 'Break', 'SUV / 4x4', 'Monospace', 'Co
 let vueVehicule = 'stock';
 // Stock : deux sous-onglets, « En stock » et « Préparation » (reprises validées en cours de remise en état).
 let vueStock = 'stock';
-const filtresStock = { statut: 'Disponibles', couleur: '', type: '', anneeMin: '', anneeMax: '', kmMax: '' };
-const STATUTS_STOCK = {
-  'Disponibles': v => v.statut === 'En stock',
-  'Réservés': v => v.statut === 'Réservé',
-  'Vendus': v => v.statut === 'Vendu',
-  'Tout le stock': v => !REPRISE.includes(v.statut),
+const filtresStock = { couleur: '', type: '', anneeMin: '', anneeMax: '', kmMax: '' };
+// Sous-onglets du Stock : libellé et statut du véhicule.
+const VUES_STOCK = {
+  preparation: ['En prépa', 'En préparation'],
+  stock: ['Stock', 'En stock'],
+  reserves: ['Réservés', 'Réservé'],
+  vendus: ['Vendus', 'Vendu'],
 };
 const STATUTS_REPRISE = {
   'À étudier': v => v.statut === 'Reprise à étudier',
@@ -219,9 +220,8 @@ const TABS = {
     sort: (a, b) => (b.creeLe || '').localeCompare(a.creeLe || ''),
     filter: v => {
       if (vueVehicule === 'reprises') return STATUTS_REPRISE[filtreReprise](v);
-      if (vueStock === 'preparation') return v.statut === 'En préparation';
       const f = filtresStock;
-      return STATUTS_STOCK[f.statut](v) && v.statut !== 'En préparation'
+      return v.statut === VUES_STOCK[vueStock][1]
         && (!f.couleur || norm(v.couleur) === norm(f.couleur))
         && (!f.type || v.type === f.type)
         && (!f.anneeMin || num(v.annee) >= num(f.anneeMin))
@@ -392,7 +392,7 @@ function render() {
     : `<div class="empty">${ILLUS[ONGLETS[onglet].icon]}<strong>${t1}</strong><span>${t2}</span></div>`;
 }
 
-const sigFiltres = () => onglet + vueStock + JSON.stringify(filtresStock) + filtreReprise + filtreRdv + vueCommande + db.all('commandes').map(o => o.statut).join()
+const sigFiltres = () => onglet + vueStock + JSON.stringify(filtresStock) + filtreReprise + filtreRdv + vueCommande + db.all('commandes').map(o => o.statut).join() + db.all('vehicules').map(v => v.statut).join()
   + db.all('vehicules').map(v => v.statut + v.couleur).join() + db.all('planning').map(r => r.date + r.fait).join();
 
 // Calendrier de la semaine : un clic sur un jour ajoute un évènement à cette date.
@@ -454,14 +454,11 @@ function renderFiltres() {
     html += `<div class="chips">${Object.keys(STATUTS_REPRISE).map(f =>
       `<button type="button" data-reprise="${f}" class="chip${f === filtreReprise ? ' active' : ''}">${f} (${all.filter(STATUTS_REPRISE[f]).length})</button>`).join('')}</div>`;
   } else {
-    const nPrep = all.filter(v => v.statut === 'En préparation').length;
-    html += `<div class="segmented">${[['stock', 'En stock'], ['preparation', `Préparation (${nPrep})`]].map(([k, l]) =>
-      `<button type="button" data-vuestock="${k}" class="${k === vueStock ? 'active' : ''}">${l}</button>`).join('')}</div>`;
-    if (vueStock === 'preparation') { box.innerHTML = html; return; }
+    html += `<div class="segmented seg-stock">${Object.entries(VUES_STOCK).map(([k, [l, st]]) =>
+      `<button type="button" data-vuestock="${k}" class="${k === vueStock ? 'active' : ''}">${l}<small>${all.filter(v => v.statut === st).length}</small></button>`).join('')}</div>`;
     const f = filtresStock;
     const couleurs = [''].concat([...new Set(all.filter(v => !REPRISE.includes(v.statut) && v.couleur).map(v => v.couleur.trim()))].sort());
     html += `<div class="filtres">
-      <label>Statut<select data-f="statut">${opt(Object.keys(STATUTS_STOCK), f.statut)}</select></label>
       <label>Type<select data-f="type">${opt(TYPES, f.type)}</select></label>
       <label>Couleur<select data-f="couleur">${opt(couleurs, f.couleur)}</select></label>
       <label>Année min<input data-f="anneeMin" type="number" inputmode="numeric" value="${esc(f.anneeMin)}" placeholder="ex. 2015"></label>
@@ -866,7 +863,7 @@ $('#filters').addEventListener('click', e => {
   else if (b.dataset.vuecmd) vueCommande = b.dataset.vuecmd;
   else if (b.dataset.vuestock) vueStock = b.dataset.vuestock;
   else if (b.dataset.reprise) filtreReprise = b.dataset.reprise;
-  else if (b.id === 'btn-reset-filtres') Object.assign(filtresStock, { statut: 'Disponibles', couleur: '', type: '', anneeMin: '', anneeMax: '', kmMax: '' });
+  else if (b.id === 'btn-reset-filtres') Object.assign(filtresStock, { couleur: '', type: '', anneeMin: '', anneeMax: '', kmMax: '' });
   else return;
   render();
 });
