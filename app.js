@@ -899,5 +899,12 @@ switchTab('clients');
 // iOS ignore parfois user-scalable=no : on bloque aussi le geste de pincement.
 document.addEventListener('gesturestart', e => e.preventDefault());
 Offre.init();
+// Écran de lancement : court (environ 1 s), puis fondu vers l'appli.
+setTimeout(() => {
+  const splash = $('#splash');
+  splash.classList.add('fin');
+  splash.addEventListener('transitionend', () => splash.remove(), { once: true });
+  setTimeout(() => splash.remove(), 800);
+}, 900);
 Sync.init(afficherSync);
 afficherSync(Sync.status, Sync.user);

@@ -344,3 +344,22 @@ body[data-onglet="commandes"] .toolbar .search[hidden] + #btn-add { flex: 1; jus
 .o-frais input:first-child { flex: 1; min-width: 0; width: auto; }
 .o-frais input:last-child { flex: none; width: 110px; max-width: none; }
 .o-bloc { grid-template-columns: minmax(0, 1fr); }
+
+/* ---------- Écran de lancement ---------- */
+#splash {
+  position: fixed; inset: 0; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+  background: radial-gradient(circle at 50% 40%, #2a2f37 0%, #0d0f12 70%); color: #fff;
+  transition: opacity .45s ease, visibility .45s;
+}
+#splash.fin { opacity: 0; visibility: hidden; }
+#splash.fin .splash-logo { transform: scale(1.15); }
+.splash-logo { animation: splash-arrivee .6s cubic-bezier(.2, .9, .3, 1.2) both; transition: transform .45s ease; }
+.splash-logo img { display: block; border-radius: 26px; box-shadow: 0 18px 50px rgba(0, 0, 0, .5); }
+.splash-nom { display: flex; align-items: center; gap: 10px; animation: splash-texte .5s .25s ease both; }
+.splash-nom .brand-name { font-size: 30px; }
+.splash-route { width: 120px; height: 3px; border-radius: 3px; background: rgba(255, 255, 255, .12); overflow: hidden; animation: splash-texte .4s .35s ease both; }
+.splash-route span { display: block; width: 40%; height: 100%; border-radius: 3px; background: var(--accent); animation: splash-route .9s ease-in-out infinite; }
+@keyframes splash-arrivee { from { opacity: 0; transform: translateY(14px) scale(.85); } to { opacity: 1; transform: none; } }
+@keyframes splash-texte { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes splash-route { from { transform: translateX(-100%); } to { transform: translateX(260%); } }
+@media (prefers-reduced-motion: reduce) { #splash *, #splash { animation: none !important; transition: opacity .2s !important; } }
