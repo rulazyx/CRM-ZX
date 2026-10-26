@@ -567,3 +567,7 @@ a.button.wa-btn { display: inline-flex; align-items: center; gap: 6px; backgroun
 .prepa-point.fait .check span { text-decoration: line-through; color: var(--muted); }
 .prepa-point .check { align-items: center; padding: 10px 6px; }
 .prepa-point .check input { width: 22px; height: 22px; margin: 0; }
+.mode-choix { margin-bottom: 12px; }
+.depot-info { display: grid; gap: 6px; }
+.depot-info .alerte { color: var(--orange); font-weight: 600; }
+.depot-info .ok { color: var(--green); font-weight: 600; }

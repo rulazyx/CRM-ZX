@@ -120,7 +120,7 @@ const Papiers = (() => {
   function numeroter() {
     const tous = db.all('vehicules');
     let max = Math.max(0, ...tous.map(v => num(v.policeNumero)));
-    tous.filter(v => ACHETES.includes(v.statut) && !v.policeNumero && v.mode !== 'depot')
+    tous.filter(v => ACHETES.includes(v.statut) && !v.policeNumero)
       .sort((a, b) => dateAchat(a).localeCompare(dateAchat(b)))
       .forEach(v => db.upsert('vehicules', { id: v.id, policeNumero: ++max }));
   }
@@ -130,14 +130,15 @@ const Papiers = (() => {
       const c = db.get('clients', v.vendeurId);
       const cmd = v.statut === 'Vendu' ? commandeVente(v) : null;
       const acheteur = cmd ? db.get('clients', cmd.clientId) : null;
-      const manque = [!c && 'vendeur', !v.vendeurPieceNumero && "pièce d'identité", !num(v.prixAchat) && "prix d'achat", !v.immatriculation && !v.vin && 'plaque ou VIN'].filter(Boolean);
+      const depot = v.mode === 'depot';
+      const manque = [!c && 'vendeur', !v.vendeurPieceNumero && "pièce d'identité", !depot && !num(v.prixAchat) && "prix d'achat", !v.immatriculation && !v.vin && 'plaque ou VIN'].filter(Boolean);
       return {
         v, numero: v.policeNumero, date: dateAchat(v),
         vehicule: [vehiculeNom(v), v.couleur].filter(Boolean).join(' · '), immat: v.immatriculation || '', vin: v.vin || '',
         vendeur: c ? clientNom(c) : '', adresseVendeur: adresse(c),
         piece: [v.vendeurPieceType, v.vendeurPieceNumero].filter(Boolean).join(' n° '),
         pieceDetail: [v.vendeurPieceDate ? 'du ' + dateFr(v.vendeurPieceDate) : '', v.vendeurPieceAutorite].filter(Boolean).join(', '),
-        prix: num(v.prixAchat), paiement: v.achatPaiement || '',
+        prix: depot ? Depot.net(v) : num(v.prixAchat), paiement: depot ? 'Dépôt-vente (net vendeur)' : v.achatPaiement || '',
         sortie: v.statut === 'Vendu' ? (v.dateVente || cmd?.dateLivree || '') : '', acheteur: acheteur ? clientNom(acheteur) : '',
         manque,
       };
@@ -324,10 +325,11 @@ const Papiers = (() => {
     const val = (k, ck) => etat[k] ?? c[ck] ?? '';
     const sel = (k, l, opts, v) => `<div class="field"><label for="r-${k}">${l}</label><select id="r-${k}" data-r="${k}">${opts.map(o => `<option${o === v ? ' selected' : ''}>${esc(o)}</option>`).join('')}</select></div>`;
     const inp = (k, l, v, type = 'text') => `<div class="field"><label for="r-${k}">${l}</label><input id="r-${k}" data-r="${k}" type="${type}" value="${esc(v)}"></div>`;
-    return `<h3 class="section">Achat · livre de police</h3>
-      <p class="hint">Obligatoire pour le livre de police : pièce d'identité du vendeur et mode de paiement.${etat.vendeurId ? '' : ' Choisis d\'abord le vendeur (bouton Modifier en haut).'}</p>
+    const depot = etat.mode === 'depot';
+    return `<h3 class="section">${depot ? 'Dépôt' : 'Achat'} · livre de police</h3>
+      <p class="hint">Obligatoire pour le livre de police : pièce d'identité du ${depot ? 'déposant' : 'vendeur'}${depot ? '' : ' et mode de paiement'}.${etat.vendeurId ? '' : ` Choisis d'abord le ${depot ? 'propriétaire' : 'vendeur'} (bouton Modifier en haut).`}</p>
       <div class="grid">
-        ${inp('achatDate', "Date d'achat", etat.achatDate || today(), 'date')}${sel('achatPaiement', 'Paiement du vendeur', PAIEMENTS_ACHAT, etat.achatPaiement || '')}
+        ${inp('achatDate', depot ? 'Date du dépôt' : "Date d'achat", etat.achatDate || today(), 'date')}${depot ? '' : sel('achatPaiement', 'Paiement du vendeur', PAIEMENTS_ACHAT, etat.achatPaiement || '')}
         ${sel('vendeurPieceType', "Pièce d'identité", TYPES_PIECE, val('vendeurPieceType', 'pieceType'))}${inp('vendeurPieceNumero', 'Numéro de la pièce', val('vendeurPieceNumero', 'pieceNumero'))}
         ${inp('vendeurPieceDate', 'Délivrée le', val('vendeurPieceDate', 'pieceDate'), 'date')}${inp('vendeurPieceAutorite', 'Délivrée par (préfecture, mairie…)', val('vendeurPieceAutorite', 'pieceAutorite'))}
       </div>`;

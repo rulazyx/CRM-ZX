@@ -104,6 +104,20 @@
     <div class="p-actions"><span class="spacer"></span><button type="button" id="btn-save-cg" class="primary">Enregistrer</button></div>
   </section>
   <section class="panneau">
+    <h2>Activité</h2>
+    <p class="muted">Mode proposé par défaut pour chaque nouveau véhicule. Tu peux toujours choisir l'autre, véhicule par véhicule.</p>
+    <div class="field"><label for="act-mode">Je travaille surtout en</label><select id="act-mode">
+      <option value="achat">Achat-revente (reprise)</option><option value="depot">Dépôt-vente</option></select></div>
+    <h3 class="section">Dépôt-vente : conditions par défaut</h3>
+    <div class="field"><label for="act-type">Commission</label><select id="act-type"></select></div>
+    <div class="grid trois" style="margin-top:10px">
+      <div class="field"><label for="act-commissionValeur">Taux (%) ou forfait (€)</label><input id="act-commissionValeur" type="number" inputmode="decimal"></div>
+      <div class="field"><label for="act-commissionMin">Minimum (€)</label><input id="act-commissionMin" type="number" inputmode="decimal"></div>
+      <div class="field"><label for="act-dureeMandat">Durée du mandat (jours)</label><input id="act-dureeMandat" type="number" inputmode="numeric"></div>
+    </div>
+    <div class="p-actions"><span class="spacer"></span><button type="button" id="btn-save-activite" class="primary">Enregistrer</button></div>
+  </section>
+  <section class="panneau">
     <h2>Facturation</h2>
     <p class="muted">Régime de TVA proposé sur chaque facture (modifiable vente par vente). À La Réunion, le taux normal est de 8,5 %.</p>
     <div class="field"><label for="fac-regime">Régime de TVA par défaut</label><select id="fac-regime"></select></div>
@@ -336,6 +350,7 @@
 <script src="papiers.js"></script>
 <script src="facture.js"></script>
 <script src="prepa.js"></script>
+<script src="depot.js"></script>
 <script src="import.js"></script>
 <script src="donnees.js"></script>
 <script src="demo.js"></script>

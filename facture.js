@@ -27,7 +27,8 @@ const Facture = (() => {
     if (!o.pack && num(o.montantPack)) packs.push(['Pack livraison', num(o.montantPack)]);
     const tva = (ttc, soumis) => soumis ? arr(ttc - ttc / (1 + TAUX / 100)) : 0;
     const L = [];
-    L.push({ libelle: `${vehiculeNom(v)}${num(o.remise) ? ` (remise de ${euros(o.remise)} déduite)` : ''}`, ttc: prixV,
+    const proprio = v.mode === 'depot' ? db.get('clients', v.vendeurId) : null;
+    L.push({ libelle: `${vehiculeNom(v)}${num(o.remise) ? ` (remise de ${euros(o.remise)} déduite)` : ''}${v.mode === 'depot' ? ` · vendu en dépôt-vente pour le compte de ${proprio ? clientNom(proprio) : 'son propriétaire'}` : ''}`, ttc: prixV,
       tva: tva(prixV, regime === 'normal'), regime: regime === 'marge' ? 'marge' : regime === 'normal' ? TAUX_TXT : '—', vehicule: true });
     packs.forEach(([l, m]) => L.push({ libelle: l, ttc: m, tva: tva(m, regime !== 'franchise'), regime: regime === 'franchise' ? '—' : TAUX_TXT }));
     if (num(o.carteGrise)) L.push({ libelle: "Certificat d'immatriculation (débours, reversé à l'ANTS)", ttc: num(o.carteGrise), tva: 0, regime: 'débours' });

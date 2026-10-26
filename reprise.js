@@ -34,9 +34,12 @@ const Reprise = (() => {
 
   // Page 1 : infos minimales demandées par les sites de cote.
   function page1() {
-    $('#reprise-titre').textContent = 'Nouvelle reprise';
+    const depot = Depot.est(etat);
+    $('#reprise-titre').textContent = etat.id ? 'Modifier' : depot ? 'Nouveau dépôt-vente' : 'Nouvelle reprise';
     const clients = db.all('clients').slice().sort((a, b) => norm(clientNom(a)).localeCompare(norm(clientNom(b))));
     $('#reprise-body').innerHTML = `
+      ${etat.statut === 'Reprise à étudier' ? `<div class="segmented mode-choix"><button type="button" data-mode="achat" class="${depot ? '' : 'active'}">Achat / reprise</button>
+        <button type="button" data-mode="depot" class="${depot ? 'active' : ''}">Dépôt-vente</button></div>` : ''}
       <div class="lookup">
         <div class="field"><label for="r-immatriculation">Plaque d'immatriculation</label>
           <div class="inline"><input id="r-immatriculation" data-r="immatriculation" value="${esc(etat.immatriculation || '')}" placeholder="AB-123-CD" autocapitalize="characters">
@@ -49,17 +52,43 @@ const Reprise = (() => {
         <div class="field full"><label for="r-finition">Version / finition</label><input id="r-finition" data-r="finition" value="${esc(etat.finition || '')}" placeholder="ex. 1.5 dCi 90 Intens"></div>
         ${champ('annee', 'Année *', 'number')}${champ('kilometrage', 'Kilométrage *', 'number')}
         ${liste('carburant', 'Carburant *', CARBURANTS)}${liste('boite', 'Boîte *', BOITES)}
-        <div class="field full"><label for="r-vendeurId">Vendeur (client qui cède le véhicule)</label>
+        <div class="field full"><label for="r-vendeurId">${depot ? 'Propriétaire (client qui confie le véhicule)' : 'Vendeur (client qui cède le véhicule)'}</label>
           <select id="r-vendeurId" data-r="vendeurId"><option value="">Aucun pour l'instant</option>${clients.map(c =>
             `<option value="${c.id}"${c.id === etat.vendeurId ? ' selected' : ''}>${esc(clientNom(c))}</option>`).join('')}</select></div>
       </div>`;
     $('#r-btn-suivant').hidden = false;
-    $('#r-btn-suivant').textContent = 'Créer et coter →';
+    $('#r-btn-suivant').textContent = depot ? 'Créer le dépôt →' : 'Créer et coter →';
     ['#r-btn-valider', '#r-btn-refuser', '#r-btn-enregistrer', '#r-btn-supprimer'].forEach(s => { $(s).hidden = true; });
   }
 
   // Page 2 : fiche reprise.
+  // Page 2 d'un dépôt-vente : le mandat au lieu de la cote et du prix de reprise.
+  function page2Depot() {
+    const v = etat;
+    const proprio = db.get('clients', v.vendeurId);
+    $('#reprise-titre').textContent = 'Dépôt-vente';
+    $('#reprise-body').innerHTML = `
+      <div class="o-choix">${v.image ? `<img src="${esc(v.image)}" alt="" onerror="this.remove()">` : ''}
+        <div><strong>${esc(vehiculeNom(v))}</strong>
+        <span class="sub">${esc([v.annee, km(v.kilometrage), v.carburant, v.boite].filter(Boolean).join(' · '))}</span>
+        <span class="sub">${v.immatriculation ? esc(v.immatriculation) + ' · ' : ''}${proprio ? 'Propriétaire : ' + esc(clientNom(proprio)) : 'Pas de propriétaire'}</span></div>
+        <button type="button" class="chip" id="r-btn-modifier">Modifier</button></div>
+      ${Depot.page2(v)}
+      <div class="field"><label for="r-defauts">État, défauts constatés, notes</label><textarea id="r-defauts" data-r="defauts">${esc(v.defauts || '')}</textarea></div>
+      ${Papiers.champsAchat(v)}
+      ${Papiers.section(db.get('vehicules', v.id))}`;
+    $('#r-btn-suivant').hidden = true;
+    const enCours = v.statut === 'Reprise à étudier';
+    $('#r-btn-valider').hidden = !enCours;
+    $('#r-btn-valider').textContent = 'Valider le dépôt → en stock';
+    $('#r-btn-refuser').hidden = !enCours;
+    $('#r-btn-enregistrer').hidden = false;
+    $('#r-btn-supprimer').hidden = false;
+  }
+
   function page2() {
+    if (Depot.est(etat)) { page2Depot(); return; }
+    $('#r-btn-valider').textContent = 'Valider la reprise → préparation';
     const v = etat;
     const c = calcul(v);
     const vendeur = db.get('clients', v.vendeurId);
@@ -125,7 +154,7 @@ const Reprise = (() => {
   }
 
   function ouvrir(id, preset = {}) {
-    etat = id ? { ...db.get('vehicules', id) } : { statut: 'Reprise à étudier', ...preset };
+    etat = id ? { ...db.get('vehicules', id) } : { statut: 'Reprise à étudier', mode: Param.get().activite.mode, ...preset };
     extra = {};
     if (id) page2(); else page1();
     $('#dlg-reprise').showModal();
@@ -142,6 +171,26 @@ const Reprise = (() => {
     return saved;
   }
 
+  // Dépôt validé : mandat daté, véhicule en stock, ligne au livre de police, fin du mandat au planning.
+  function validerDepot() {
+    document.querySelectorAll('#reprise-body [data-r]').forEach(i => { etat[i.dataset.r] = i.value; });
+    if (!num(etat.prixVente)) { toast('Saisis le prix de vente affiché avant de valider.'); $('#r-prixVente')?.focus(); return; }
+    if (etat.commissionType === 'net' && !num(etat.prixNetVendeur)) { toast('Saisis le net vendeur garanti.'); return; }
+    if ((!etat.vendeurId || !etat.vendeurPieceNumero) && !confirm("Le livre de police demande le propriétaire et le numéro de sa pièce d'identité. Valider quand même et compléter plus tard ?")) return;
+    const debut = etat.mandatDebut || today();
+    const saved = enregistrer({ statut: 'En stock', dateEntree: etat.dateEntree || today(), achatDate: etat.achatDate || today(), mandatDebut: debut,
+      mandatFin: Depot.finMandat({ ...etat, mandatDebut: debut, mandatFin: '' }) });
+    Papiers.apresAchat(saved);
+    const v = db.get('vehicules', saved.id);
+    db.upsert('planning', { type: 'Autre', date: v.mandatFin, heure: '', clientId: v.vendeurId || '', vehiculeId: v.id, fait: false,
+      notes: `Fin du mandat de dépôt-vente : prolonger ou rendre le véhicule` });
+    $('#dlg-reprise').close();
+    toast('Dépôt validé : le véhicule est en stock. Imprime le mandat depuis sa fiche.');
+    vueStock = 'stock';
+    switchTab('stock');
+    setTimeout(() => alerteRecherche(v), 2800);
+  }
+
   function init() {
     const body = $('#reprise-body');
     body.addEventListener('input', e => {
@@ -149,9 +198,18 @@ const Reprise = (() => {
       if (!k) return;
       etat[k] = e.target.value;
       if ($('#r-fourchette')) majCalcul();
+      if ($('#depot-resume')) $('#depot-resume').innerHTML = Depot.resume(etat);
     });
-    body.addEventListener('change', e => { const k = e.target.dataset.r; if (k) etat[k] = e.target.value; });
+    body.addEventListener('change', e => {
+      const k = e.target.dataset.r;
+      if (!k) return;
+      etat[k] = e.target.value;
+      // Le type de commission change les champs à remplir.
+      if (k === 'commissionType') { delete etat.commissionValeur; page2Depot(); }
+    });
     body.addEventListener('click', async e => {
+      const mode = e.target.closest('[data-mode]');
+      if (mode) { etat.mode = mode.dataset.mode; page1(); return; }
       if (e.target.id === 'r-btn-modifier') { page1(); $('#r-btn-suivant').textContent = 'Enregistrer et revenir →'; return; }
       const site = e.target.dataset.coteSite;
       if (site) {
@@ -203,6 +261,7 @@ const Reprise = (() => {
     $('#r-btn-enregistrer').addEventListener('click', () => { enregistrer(); $('#dlg-reprise').close(); toast('Reprise enregistrée'); render(); });
     $('#r-btn-refuser').addEventListener('click', () => { enregistrer({ statut: 'Reprise refusée' }); $('#dlg-reprise').close(); toast('Reprise refusée'); render(); });
     $('#r-btn-valider').addEventListener('click', () => {
+      if (Depot.est(etat)) { validerDepot(); return; }
       if (!num(etat.prixPropose)) { toast('Saisis le prix de reprise avant de valider.'); $('#r-prixPropose')?.focus(); return; }
       // Champs du livre de police pré-remplis depuis le client : ils comptent même s'ils n'ont pas été retouchés.
       document.querySelectorAll('#reprise-body [data-r^="vendeurPiece"], #reprise-body [data-r^="achat"]').forEach(i => { etat[i.dataset.r] = i.value; });

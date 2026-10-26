@@ -268,6 +268,7 @@ const TABS = {
       { k: 'dateEntree', l: "Date d'entrée en stock", type: 'date' },
       { k: '_photos', type: 'photos' },
       { k: '_interesses', type: 'interesses' },
+      { k: '_depot', type: 'depot' },
       { k: '_cherchent', type: 'cherchent' },
       { k: '_papiers', type: 'papiers' },
       { k: 'notes', l: 'Notes', type: 'textarea', full: true },
@@ -287,10 +288,11 @@ const TABS = {
     card: v => {
       const reprise = REPRISE.includes(v.statut);
       const prix = reprise ? (v.prixPropose ? 'Proposé ' + euros(v.prixPropose) : '') : euros(v.prixVente);
-      const marge = !reprise && v.prixVente && v.prixAchat ? num(v.prixVente) - num(v.prixAchat) - Prepa.frais(v) : null;
+      const marge = Depot.est(v) ? (v.prixVente ? Depot.commission(v) - Prepa.frais(v) : null)
+        : !reprise && v.prixVente && v.prixAchat ? num(v.prixVente) - num(v.prixAchat) - Prepa.frais(v) : null;
       return `${v.image ? `<div class="thumb"><img src="${esc(v.image)}" alt="" loading="lazy" onerror="this.parentNode.remove()"></div>` : ''}
         <div class="top"><span class="title">${esc(vehiculeNom(v))}</span>
-        <span class="badge ${STATUT_VEHICULE[v.statut] || 'b-grey'}">${esc(v.statut || '')}</span></div>
+        <span class="c-badges">${Depot.est(v) ? '<span class="badge b-purple">Dépôt-vente</span>' : ''}<span class="badge ${STATUT_VEHICULE[v.statut] || 'b-grey'}">${esc(v.statut || '')}</span></span></div>
         <div class="sub">${esc([v.annee, km(v.kilometrage), v.carburant, v.boite, v.type, v.couleur].filter(Boolean).join(' · '))}</div>
         ${(v.photos || []).length ? `<div class="sub">📷 ${v.photos.length} photo(s)</div>` : Photos.deblocable(v) ? '<div class="sub">📷 Photos à prendre</div>' : ''}
         ${v.statut === 'En préparation' ? `<div class="sub">🔧 Préparation ${v.prepa ? Prepa.avancement(v) + ' · frais ' + (euros(Prepa.fraisReels(v)) || '0 €') : 'à commencer'}</div>` : ''}
@@ -298,7 +300,7 @@ const TABS = {
         ${clientsQuiCherchent(v).length ? `<div class="sub">🔎 ${clientsQuiCherchent(v).length} client(s) cherchent ce véhicule</div>` : ''}
         ${reprise && v.vendeurId ? `<div class="sub">Vendeur : ${esc(clientNom(db.get('clients', v.vendeurId)))}</div>` : ''}
         <div class="top"><span>${v.immatriculation ? `<span class="plate">${esc(v.immatriculation)}</span>` : ''}</span>
-        <span class="price">${prix}${marge !== null ? `<span class="sub"> · marge ${euros(marge)}</span>` : ''}</span></div>`;
+        <span class="price">${prix}${marge !== null ? `<span class="sub"> · ${Depot.est(v) ? 'commission' : 'marge'} ${euros(marge)}</span>` : ''}</span></div>`;
     },
     canDelete: v => {
       const nb = db.all('commandes').filter(o => o.vehiculeId === v.id).length;
@@ -352,7 +354,7 @@ const TABS = {
       if (v && o.statut !== 'Offre') {
         const statut = o.statut === 'Livrée' ? 'Vendu' : o.statut === 'Annulée' ? 'En stock' : 'Réservé';
         if (v.statut !== statut) db.upsert('vehicules', { id: v.id, statut, ...(statut === 'Vendu' ? { dateVente: today() } : {}) });
-        if (statut === 'Vendu') Papiers.rappelRetrait(db.get('vehicules', v.id));
+        if (statut === 'Vendu') { Papiers.rappelRetrait(db.get('vehicules', v.id)); Depot.apresVente(db.get('vehicules', v.id), o); }
       }
       // Date de livraison effective : sert au CA du mois et à la rotation du stock (onglet Données).
       if (o.statut === 'Livrée' && !o.dateLivree) db.upsert('commandes', { id: o.id, dateLivree: today() });
@@ -601,6 +603,7 @@ function fieldHtml(f, row) {
     }
     case 'papiers': return Papiers.section(row);
     case 'docsVente': return Facture.section(row);
+    case 'depot': return Depot.section(row);
     case 'correspond': {
       if (!row.id || !aUneRecherche(row)) return '';
       const vs = vehiculesPour(row);
@@ -1221,6 +1224,7 @@ Param.init();
 Papiers.init();
 Facture.init();
 Prepa.init();
+Depot.init();
 Import.init();
 let redim = null;
 window.addEventListener('resize', () => { clearTimeout(redim); if (onglet === 'donnees') redim = setTimeout(render, 150); });

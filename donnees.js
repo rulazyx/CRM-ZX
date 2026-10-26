@@ -13,8 +13,10 @@ const Donnees = (() => {
     return db.all('commandes').filter(o => o.statut === 'Livrée').map(o => {
       const v = db.get('vehicules', o.vehiculeId) || {};
       const date = o.dateLivree || o.dateLivraison || (o.majLe || o.date || '').slice(0, 10);
-      const ca = num(o.prixVente || v.prixVente) - num(o.remise) + num(o.montantPack);
-      const benef = ca - num(v.prixAchat) - Prepa.frais(v);
+      const prix = num(o.prixVente || v.prixVente) - num(o.remise);
+      // Dépôt-vente : le chiffre d'affaires du garage est sa commission (le reste revient au propriétaire).
+      const ca = (Depot.est(v) ? Depot.commission(v, prix) : prix) + num(o.montantPack);
+      const benef = ca - (Depot.est(v) ? 0 : num(v.prixAchat)) - Prepa.frais(v);
       return { o, v, date, ca, benef };
     });
   }

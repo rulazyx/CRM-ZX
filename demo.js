@@ -52,6 +52,9 @@ const Demo = (() => {
       il, vente, client,
     }));
     vehicules.push(...ventes.map(x => x.v));
+    // Un véhicule en dépôt-vente, confié par un client.
+    vehicules.push(v('Peugeot', '2008', '1.2 PureTech 130 GT Line', 2020, 46000, 'Essence', 'Automatique', 'SUV / 4x4', 'Gris', 'En stock', 25, '', 18900, 0,
+      { mode: 'depot', vendeurId: C['Fontaine'], commissionType: 'pourcentage', commissionValeur: 8, commissionMin: 500, mandatDebut: jour(-25), mandatFin: jour(65) }));
     // Livre de police de la démo : chaque véhicule acheté a son vendeur et sa pièce d'identité.
     const pieces = ["Carte d'identité", 'Permis de conduire', 'Passeport'];
     vehicules.filter(x => x.statut !== 'Reprise à étudier').forEach((x, i) => {

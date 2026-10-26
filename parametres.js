@@ -12,6 +12,8 @@ const Param = (() => {
     reprise: { hausseReunion: 10, margeMin: 10, margeMax: 20 },
     // Facturation : TVA sur la marge par défaut (véhicules achetés à des particuliers).
     facture: { regime: 'marge', conditions: '' },
+    // Activité : achat-revente ou dépôt-vente par défaut (chaque véhicule garde son propre mode), et commission du dépôt.
+    activite: { mode: 'achat', commissionType: 'pourcentage', commissionValeur: 8, commissionMin: 500, dureeMandat: 90 },
     documents: [],
   };
   const TYPES_DOC = ['RIB', 'Kbis', 'Assurance', 'Conditions de vente', 'Autre'];
@@ -40,6 +42,7 @@ const Param = (() => {
       carteGrise: { ...DEFAUTS.carteGrise, ...(p.carteGrise || {}) },
       reprise: { ...DEFAUTS.reprise, ...(p.reprise || {}) },
       facture: { ...DEFAUTS.facture, ...(p.facture || {}) },
+      activite: { ...DEFAUTS.activite, ...(p.activite || {}) },
       packs: p.packs || DEFAUTS.packs,
       documents: p.documents || [],
     };
@@ -81,6 +84,9 @@ const Param = (() => {
     $('#set-marge-max').value = p.reprise.margeMax;
     $('#fac-regime').innerHTML = Object.entries(Facture.REGIMES).map(([k, l]) => `<option value="${k}"${k === p.facture.regime ? ' selected' : ''}>${l}</option>`).join('');
     $('#fac-conditions').value = p.facture.conditions;
+    $('#act-mode').value = p.activite.mode;
+    $('#act-type').innerHTML = Object.entries(Depot.TYPES).map(([k, l]) => `<option value="${k}"${k === p.activite.commissionType ? ' selected' : ''}>${l}</option>`).join('');
+    ['commissionValeur', 'commissionMin', 'dureeMandat'].forEach(k => { $('#act-' + k).value = p.activite[k]; });
     $('#doc-type').innerHTML = TYPES_DOC.map(t => `<option>${t}</option>`).join('');
     rendreDocuments(p.documents);
   }
@@ -160,6 +166,11 @@ const Param = (() => {
       toast('Réglages de facturation enregistrés');
     });
     $('#btn-export-factures').addEventListener('click', () => Facture.exporter());
+    $('#btn-save-activite').addEventListener('click', () => {
+      save({ activite: { mode: $('#act-mode').value, commissionType: $('#act-type').value, commissionValeur: num($('#act-commissionValeur').value),
+        commissionMin: num($('#act-commissionMin').value), dureeMandat: num($('#act-dureeMandat').value) || 90 } });
+      toast('Activité enregistrée : elle sert de choix par défaut pour chaque nouveau véhicule');
+    });
 
     // Documents : rangés dans le dossier privé de l'entreprise.
     $('#doc-input').addEventListener('change', async e => {
