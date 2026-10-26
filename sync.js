@@ -96,8 +96,22 @@ const Sync = (() => {
   async function connecter(identifiant, motDePasse, garder = true) {
     if (!client) throw new Error("L'appli n'est pas encore reliée à sa base (voir Réglages techniques).");
     try { localStorage.setItem('crmzx-rester', garder ? '1' : '0'); } catch (e) { /* rien */ }
-    const { error } = await client.auth.signInWithPassword({ email: versEmail(identifiant), password: motDePasse });
-    if (error) throw new Error(/invalid login/i.test(error.message) ? 'Identifiant ou mot de passe incorrect.' : error.message);
+    const email = versEmail(identifiant);
+    const horsLigne = () => new Error('Connexion impossible : vérifie ta connexion internet, puis réessaie.');
+    if (!navigator.onLine) throw horsLigne();
+    let error;
+    try { ({ error } = await client.auth.signInWithPassword({ email, password: motDePasse })); }
+    catch (e) { throw horsLigne(); }
+    if (!error) return;
+    if (/invalid login/i.test(error.message)) {
+      // Compte inexistant ou mot de passe erroné (si la base sait répondre, sinon message commun).
+      const { data: existe, error: e2 } = await client.rpc('crm_compte_existe', { p_email: email });
+      if (e2 || existe === null || existe === undefined) throw new Error('Email ou mot de passe incorrect.');
+      throw new Error(existe ? 'Mot de passe erroné.' : 'Compte inexistant : vérifie l\'email, ou demande à ton administrateur de créer ton compte.');
+    }
+    if (/fetch|network|load failed/i.test(error.message) || error.status === 0) throw horsLigne();
+    if (/database error/i.test(error.message)) throw new Error('Erreur de la base au moment de la connexion. Préviens ton administrateur (' + error.message + ').');
+    throw new Error(error.message);
   }
   async function nouveauMotDePasse(motDePasse) {
     if ((motDePasse || '').length < 8) throw new Error('Le mot de passe doit faire au moins 8 caractères.');

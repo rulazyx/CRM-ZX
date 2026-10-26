@@ -871,18 +871,28 @@ $('#auth-form').addEventListener('submit', async e => {
   const id = $('#auth-email').value.trim(), mdp = $('#auth-mdp').value;
   const btn = $('#auth-ok');
   const nouveau = !!Sync.profil.doit_changer_mdp;
-  if (!nouveau && !id) { toast('Saisis ton email.'); return; }
-  if (!mdp) { toast('Saisis ton mot de passe.'); return; }
-  if (nouveau && mdp !== $('#auth-mdp2').value) { toast('Les deux mots de passe ne sont pas identiques.'); return; }
+  if (!nouveau && !id) { erreurAuth('Saisis ton email.'); return; }
+  if (!mdp) { erreurAuth('Saisis ton mot de passe.'); return; }
+  if (nouveau && mdp !== $('#auth-mdp2').value) { erreurAuth('Les deux mots de passe ne sont pas identiques.'); return; }
   btn.disabled = true;
+  btn.textContent = nouveau ? 'Enregistrement…' : 'Connexion…';
+  erreurAuth('');
   try {
     if (nouveau) { await Sync.nouveauMotDePasse(mdp); toast('Mot de passe enregistré'); }
     else await Sync.connecter(id, mdp, $('#auth-rester').checked);
     $('#auth-mdp').value = ''; $('#auth-mdp2').value = '';
-  } catch (err) { toast(err.message); }
-  finally { btn.disabled = false; }
+  } catch (err) { erreurAuth(err.message); }
+  finally { btn.disabled = false; btn.textContent = Sync.profil.doit_changer_mdp ? 'Enregistrer mon mot de passe' : 'Se connecter'; }
 });
 $('#auth-sortir').addEventListener('click', () => Sync.deconnecter());
+// Erreur affichée dans la carte de connexion (bien visible, au-dessus du bouton).
+function erreurAuth(msg) {
+  const el = $('#auth-erreur');
+  el.textContent = msg;
+  el.hidden = !msg;
+  if (msg) { el.classList.remove('secoue'); void el.offsetWidth; el.classList.add('secoue'); }
+}
+['#auth-email', '#auth-mdp'].forEach(sel => $(sel).addEventListener('input', () => erreurAuth('')));
 const enregistrerConfig = (url, cle) => {
   url = url.trim(); cle = cle.trim();
   if (url && !/^https:\/\/[a-z0-9-]+\.supabase\.co\/?$/i.test(url)) { toast("L'adresse doit ressembler à https://xxxx.supabase.co"); return; }

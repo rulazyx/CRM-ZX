@@ -109,6 +109,14 @@ begin
     'demo', (select demo from public.crm_entreprises where id = m.entreprise_id));
 end $$;
 
+-- Écran de connexion : dit si un compte existe, pour distinguer « compte inexistant » de « mot de passe erroné ».
+-- (Choix d'Anthony : cela permet aussi à n'importe qui de tester si un email a un compte.)
+create or replace function public.crm_compte_existe(p_email text) returns boolean
+language sql stable security definer set search_path = public, auth as $$
+  select exists (select 1 from auth.users where lower(email) = lower(trim(p_email)));
+$$;
+grant execute on function public.crm_compte_existe(text) to anon, authenticated;
+
 -- Après le changement de mot de passe.
 create or replace function public.crm_mdp_change() returns void
 language sql security definer set search_path = public as $$
