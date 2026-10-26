@@ -41,7 +41,7 @@ create table if not exists public.crm_superadmins (email text primary key);
 alter table public.crm_superadmins enable row level security;
 -- ⬇️ Remplace TON_EMAIL_ICI par l'email de ton compte (garde les apostrophes).
 insert into public.crm_superadmins (email)
-  select lower(trim('anthony.lamer@hotmail.fr')) where 'TON_EMAIL_ICI' like '%@%'
+  select lower(trim(x)) from (values ('anthony.lamer@hotmail.fr')) v (x) where x like '%@%'
   on conflict do nothing;
 delete from public.crm_superadmins where email like '%@demo.crmzx.re';
 
