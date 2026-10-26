@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CRM ZX</title>
+<meta name="theme-color" content="#0f172a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="CRM ZX">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>CRM ZX</h1>
+  <nav id="tabs">
+    <button data-tab="clients" class="active">Clients</button>
+    <button data-tab="commandes">Commandes</button>
+    <button data-tab="vehicules">Véhicules</button>
+  </nav>
+  <button id="btn-menu" class="ghost" title="Sauvegarde">⋯</button>
+</header>
+
+<main>
+  <div class="toolbar">
+    <input id="search" type="search" placeholder="Rechercher…" autocomplete="off">
+    <button id="btn-add" class="primary">+ Ajouter</button>
+  </div>
+  <p id="count" class="muted"></p>
+  <div id="list" class="list"></div>
+</main>
+
+<nav id="bottom-tabs">
+  <button data-tab="clients" class="active"><span>👤</span>Clients</button>
+  <button data-tab="commandes"><span>📄</span>Commandes</button>
+  <button data-tab="vehicules"><span>🚗</span>Véhicules</button>
+</nav>
+
+<dialog id="dlg">
+  <form id="form" method="dialog">
+    <h2 id="form-title"></h2>
+    <div id="form-body"></div>
+    <div class="actions">
+      <button type="button" id="btn-delete" class="danger">Supprimer</button>
+      <span class="spacer"></span>
+      <button type="button" id="btn-cancel">Annuler</button>
+      <button type="submit" class="primary">Enregistrer</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlg-menu">
+  <form method="dialog">
+    <h2>Sauvegarde</h2>
+    <p class="muted">Pour l'instant, les données restent dans ce navigateur, sur cet appareil.
+      Pense à exporter une sauvegarde de temps en temps.</p>
+    <div class="stack">
+      <button type="button" id="btn-export">Exporter une sauvegarde (.json)</button>
+      <label class="button">Importer une sauvegarde<input id="file-import" type="file" accept=".json,application/json" hidden></label>
+    </div>
+    <div class="actions"><span class="spacer"></span><button>Fermer</button></div>
+  </form>
+</dialog>
+
+<div id="toast"></div>
+
+<script src="vin.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
