@@ -571,3 +571,13 @@ a.button.wa-btn { display: inline-flex; align-items: center; gap: 6px; backgroun
 .depot-info { display: grid; gap: 6px; }
 .depot-info .alerte { color: var(--orange); font-weight: 600; }
 .depot-info .ok { color: var(--green); font-weight: 600; }
+.vit-lien { margin: 8px 0; font-size: 14px; word-break: break-all; }
+.vit-lien a { color: var(--primary); font-weight: 600; }
+#vit-qr { width: 120px; }
+#vit-qr:empty { display: none; }
+.demandes .demande { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 10px 4px; border-top: 1px solid var(--line); }
+.demandes .demande:first-of-type { border-top: 0; }
+.demandes .demande .sub { display: block; color: var(--muted); font-size: 13px; }
+.demandes a.chip { text-decoration: none; color: inherit; }
+.demandes .p-tete a { text-decoration: none; }
+@media (max-width: 640px) { .demandes .demande { grid-template-columns: 1fr; } }

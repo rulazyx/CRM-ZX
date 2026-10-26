@@ -877,6 +877,7 @@ function remplirParametres() {
   afficherEquipe();
   afficherGarages();
   afficherQr();
+  EnLigne.rendreParametres();
   majInstall();
   $('#set-usage').textContent = `${Plaque.usageCeMois()} recherche(s) par plaque ce mois-ci sur cet appareil (10 gratuites par mois avec l'offre Basic).`;
 }
@@ -885,6 +886,7 @@ $('#btn-menu').addEventListener('click', () => switchTab('parametres'));
 // ---------- Comptes et synchronisation ----------
 const SYNC_TEXTE = { off: 'Non connecté', connexion: 'Connexion…', ok: 'Synchronisé', envoi: 'Envoi…', erreur: 'Erreur de synchro', refuse: 'Accès refusé', 'nouveau-mdp': 'Nouveau mot de passe' };
 let etaitConnecte = false;
+let vitrineDemarree = false;
 
 function afficherSync(status, user, role) {
   const pill = $('#sync-pill');
@@ -901,6 +903,8 @@ function afficherSync(status, user, role) {
   $('#reglages-supabase').open = !Sync.configure();
   if (role) etaitConnecte = true;
   if (status === 'ok') {
+    // Vitrine en ligne : demandes des visiteurs en direct, et copie publique remise à jour.
+    if (!vitrineDemarree) { vitrineDemarree = true; EnLigne.demarrer(); } else EnLigne.planifier();
     // Nom de l'entreprise donné à la création du compte : repris dans les infos du garage.
     if (Sync.entreprise?.nom && !Param.get().garage.nom) Param.save({ garage: { ...Param.get().garage, nom: Sync.entreprise.nom } });
     // Compte démo vide : on le remplit avec des données d'exemple.
@@ -909,7 +913,7 @@ function afficherSync(status, user, role) {
     if (onglet === 'parametres') { afficherEquipe(); afficherGarages(); }
   }
   // Déconnexion : les données quittent l'appareil (elles restent en ligne).
-  if (!user && etaitConnecte) { etaitConnecte = false; db.vider(); switchTab('donnees'); }
+  if (!user && etaitConnecte) { etaitConnecte = false; vitrineDemarree = false; EnLigne.arreter(); db.vider(); switchTab('donnees'); }
   afficherAuth(status, user, role);
   if (!['connexion', 'envoi'].includes(status)) chargement(false);
 }
@@ -1225,6 +1229,7 @@ Papiers.init();
 Facture.init();
 Prepa.init();
 Depot.init();
+EnLigne.init();
 Import.init();
 let redim = null;
 window.addEventListener('resize', () => { clearTimeout(redim); if (onglet === 'donnees') redim = setTimeout(render, 150); });

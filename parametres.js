@@ -13,6 +13,7 @@ const Param = (() => {
     // Facturation : TVA sur la marge par défaut (véhicules achetés à des particuliers).
     facture: { regime: 'marge', conditions: '' },
     // Activité : achat-revente ou dépôt-vente par défaut (chaque véhicule garde son propre mode), et commission du dépôt.
+    vitrine: { actif: false, slug: '' },
     activite: { mode: 'achat', commissionType: 'pourcentage', commissionValeur: 8, commissionMin: 500, dureeMandat: 90 },
     documents: [],
   };
@@ -43,6 +44,7 @@ const Param = (() => {
       reprise: { ...DEFAUTS.reprise, ...(p.reprise || {}) },
       facture: { ...DEFAUTS.facture, ...(p.facture || {}) },
       activite: { ...DEFAUTS.activite, ...(p.activite || {}) },
+      vitrine: { ...DEFAUTS.vitrine, ...(p.vitrine || {}) },
       packs: p.packs || DEFAUTS.packs,
       documents: p.documents || [],
     };

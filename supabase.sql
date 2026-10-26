@@ -226,3 +226,92 @@ drop policy if exists "Fichiers : entreprise" on storage.objects;
 create policy "Fichiers : entreprise" on storage.objects for all to authenticated
   using (bucket_id in ('photos', 'documents') and (storage.foldername(name))[1] = public.crm_entreprise()::text)
   with check (bucket_id in ('photos', 'documents') and (storage.foldername(name))[1] = public.crm_entreprise()::text);
+
+-- Vitrine en ligne : une page publique par garage, avec ses véhicules disponibles (copie publiée par l'appli,
+-- sans prix d'achat ni données clients). Les visiteurs ne lisent que cette copie, par une fonction.
+create table if not exists public.crm_vitrine (
+  entreprise_id uuid primary key references public.crm_entreprises (id) on delete cascade,
+  slug text unique not null,
+  actif boolean not null default true,
+  data jsonb not null default '{}'::jsonb,
+  photos text[] not null default '{}',
+  maj_le timestamptz not null default now()
+);
+alter table public.crm_vitrine enable row level security;
+drop policy if exists "Vitrine : équipe" on public.crm_vitrine;
+create policy "Vitrine : équipe" on public.crm_vitrine for select to authenticated
+  using (entreprise_id = public.crm_entreprise());
+
+create or replace function public.crm_vitrine_publier(p_slug text, p_actif boolean, p_data jsonb, p_photos text[]) returns json
+language plpgsql security definer set search_path = public as $$
+declare eid uuid := public.crm_entreprise(); s text := lower(trim(p_slug));
+begin
+  if eid is null then raise exception 'Compte non rattaché à un garage'; end if;
+  if s !~ '^[a-z0-9][a-z0-9-]{2,39}$' then raise exception 'Adresse invalide : 3 à 40 lettres, chiffres ou tirets'; end if;
+  if exists (select 1 from public.crm_vitrine where slug = s and entreprise_id <> eid) then raise exception 'Cette adresse est déjà prise par un autre garage'; end if;
+  insert into public.crm_vitrine (entreprise_id, slug, actif, data, photos, maj_le)
+  values (eid, s, p_actif, p_data,
+    (select coalesce(array_agg(x), '{}') from unnest(p_photos) x where x like eid::text || '/%'), now())
+  on conflict (entreprise_id) do update set slug = excluded.slug, actif = excluded.actif, data = excluded.data, photos = excluded.photos, maj_le = now();
+  return json_build_object('slug', s);
+end $$;
+
+create or replace function public.crm_vitrine_lire(p_slug text) returns json
+language sql stable security definer set search_path = public as $$
+  select json_build_object('data', data, 'maj_le', maj_le) from public.crm_vitrine where slug = lower(trim(p_slug)) and actif;
+$$;
+grant execute on function public.crm_vitrine_lire(text) to anon, authenticated;
+
+-- Les photos des véhicules publiés sont lisibles par les visiteurs de la vitrine (et seulement celles-là).
+create or replace function public.crm_photo_publique(p_name text) returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.crm_vitrine where actif and p_name = any (photos));
+$$;
+grant execute on function public.crm_photo_publique(text) to anon, authenticated;
+drop policy if exists "Photos : vitrine" on storage.objects;
+create policy "Photos : vitrine" on storage.objects for select to anon
+  using (bucket_id = 'photos' and public.crm_photo_publique(name));
+
+-- Demandes envoyées depuis la vitrine : arrivent dans l'appli du garage (en direct).
+create table if not exists public.crm_demandes (
+  id uuid primary key default gen_random_uuid(),
+  entreprise_id uuid not null references public.crm_entreprises (id) on delete cascade,
+  cree_le timestamptz not null default now(),
+  nom text not null,
+  telephone text not null default '',
+  email text not null default '',
+  message text not null default '',
+  vehicule_id text not null default '',
+  vehicule text not null default '',
+  traite boolean not null default false
+);
+alter table public.crm_demandes enable row level security;
+drop policy if exists "Demandes : équipe" on public.crm_demandes;
+create policy "Demandes : équipe" on public.crm_demandes for all to authenticated
+  using (entreprise_id = public.crm_entreprise()) with check (entreprise_id = public.crm_entreprise());
+
+create or replace function public.crm_vitrine_demande(p_slug text, p_nom text, p_tel text, p_email text, p_message text, p_vid text, p_vehicule text)
+returns boolean language plpgsql security definer set search_path = public as $$
+declare eid uuid;
+begin
+  select entreprise_id into eid from public.crm_vitrine where slug = lower(trim(p_slug)) and actif;
+  if eid is null then raise exception 'Vitrine introuvable'; end if;
+  if length(trim(coalesce(p_nom, ''))) not between 1 and 80 or length(coalesce(p_tel, '')) > 30 or length(coalesce(p_email, '')) > 120
+     or length(coalesce(p_message, '')) > 1000 or (trim(coalesce(p_tel, '')) = '' and trim(coalesce(p_email, '')) = '') then
+    raise exception 'Demande incomplète';
+  end if;
+  -- Garde-fou contre les envois en rafale.
+  if (select count(*) from public.crm_demandes where entreprise_id = eid and cree_le > now() - interval '1 hour') >= 30 then
+    raise exception 'Trop de demandes, réessayez plus tard';
+  end if;
+  insert into public.crm_demandes (entreprise_id, nom, telephone, email, message, vehicule_id, vehicule)
+  values (eid, trim(p_nom), trim(coalesce(p_tel, '')), trim(coalesce(p_email, '')), trim(coalesce(p_message, '')), coalesce(p_vid, ''), left(coalesce(p_vehicule, ''), 160));
+  return true;
+end $$;
+grant execute on function public.crm_vitrine_demande(text, text, text, text, text, text, text) to anon, authenticated;
+revoke execute on function public.crm_vitrine_publier(text, boolean, jsonb, text[]) from public, anon;
+grant execute on function public.crm_vitrine_publier(text, boolean, jsonb, text[]) to authenticated;
+
+do $$ begin
+  alter publication supabase_realtime add table public.crm_demandes;
+exception when duplicate_object then null; end $$;

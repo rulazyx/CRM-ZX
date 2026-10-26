@@ -79,6 +79,17 @@
     <div class="p-actions"><span class="spacer"></span><button type="button" id="btn-save-garage" class="primary">Enregistrer</button></div>
   </section>
   <section class="panneau">
+    <h2>Vitrine en ligne</h2>
+    <p class="muted">Une page publique avec tes véhicules disponibles, photos et prix. Le vendu disparaît tout seul. Les visiteurs te contactent par WhatsApp ou par un formulaire qui arrive dans l'accueil.</p>
+    <div class="field"><label for="vit-slug">Adresse de ta vitrine</label><input id="vit-slug" autocomplete="off" spellcheck="false" placeholder="garage-payet-auto"></div>
+    <label class="check" style="margin-top:6px"><input type="checkbox" id="vit-actif"><span>Vitrine en ligne (visible par tout le monde)</span></label>
+    <div class="vit-lien" id="vit-lien"></div>
+    <div class="install-qr"><div id="vit-qr"></div><span class="hint" id="vit-etat"></span></div>
+    <div class="p-actions"><button type="button" id="btn-vit-copier">Copier le lien</button>
+      <button type="button" id="vit-notif">Recevoir les alertes sur cet appareil</button><span class="spacer"></span>
+      <button type="button" id="btn-vit-save" class="primary">Enregistrer</button></div>
+  </section>
+  <section class="panneau">
     <h2>Documents</h2>
     <p class="muted">RIB, Kbis, assurance… rangés en ligne, visibles uniquement par ton équipe.</p>
     <div id="p-docs" class="p-docs"></div>
@@ -351,6 +362,7 @@
 <script src="facture.js"></script>
 <script src="prepa.js"></script>
 <script src="depot.js"></script>
+<script src="enligne.js"></script>
 <script src="import.js"></script>
 <script src="donnees.js"></script>
 <script src="demo.js"></script>
