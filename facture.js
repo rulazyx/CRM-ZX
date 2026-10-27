@@ -39,7 +39,7 @@ const Facture = (() => {
 
   const entete = (titre, sous) => {
     const g = Param.get().garage;
-    return `<header style="display:flex;gap:12px;align-items:center;border-bottom:2px solid #0f172a;padding-bottom:10px">
+    return `<header style="display:flex;gap:12px;align-items:center;border-bottom:2px solid #0d0f12;padding-bottom:10px">
       ${g.logo ? `<img src="${esc(g.logo)}" alt="" style="width:52px;height:52px;object-fit:contain;border-radius:8px">` : ''}
       <div><h1>${esc(titre)}</h1><span class="muted">${sous}</span></div>
       <div style="margin-left:auto;text-align:right;font-size:12px;color:#334155"><strong>${esc(g.nom || '')}</strong><br>
@@ -49,9 +49,9 @@ const Facture = (() => {
   const blocs = (o, v) => {
     const c = db.get('clients', o.clientId) || {};
     return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:16px 0">
-      <div style="border:1px solid #cbd5e1;border-radius:8px;padding:10px"><b>Client</b><br>${esc(clientNom(c))}${c.societe && c.nom ? '<br>' + esc(c.societe) : ''}<br>
+      <div style="border:1px solid #c9cbd0;border-radius:8px;padding:10px"><b>Client</b><br>${esc(clientNom(c))}${c.societe && c.nom ? '<br>' + esc(c.societe) : ''}<br>
         ${esc([c.adresse, [c.codePostal, c.ville].filter(Boolean).join(' ')].filter(Boolean).join(', '))}<br>${esc([c.telephone, c.email].filter(Boolean).join(' · '))}</div>
-      <div style="border:1px solid #cbd5e1;border-radius:8px;padding:10px"><b>Véhicule</b><br>${esc(vehiculeNom(v))}<br>
+      <div style="border:1px solid #c9cbd0;border-radius:8px;padding:10px"><b>Véhicule</b><br>${esc(vehiculeNom(v))}<br>
         ${esc([v.immatriculation, v.vin && 'VIN ' + v.vin].filter(Boolean).join(' · '))}<br>
         ${esc([v.miseEnCirculation && '1re mise en circulation ' + dateFr(v.miseEnCirculation), v.annee && !v.miseEnCirculation && 'Année ' + v.annee, v.kilometrage && km(v.kilometrage) + ' au compteur', v.carburant].filter(Boolean).join(' · '))}</div></div>`;
   };

@@ -5,31 +5,31 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Outils gratuits du marchand auto</title>
 <meta name="description" content="Calculateurs gratuits pour les marchands automobiles de La Réunion : prix de la carte grise, marge réelle et TVA sur marge, coût d'un véhicule qui dort en stock.">
-<meta name="theme-color" content="#0f172a">
+<meta name="theme-color" content="#0d0f12">
 <link rel="icon" href="logo.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="marque.css">
 <style>
 :root {
-  --bg: #f4f6fb; --card: #fff; --text: #0f172a; --muted: #64748b; --line: #e4e8f0;
-  --primary: #2563eb; --accent: #f59e0b; --green: #16a34a; --red: #dc2626; --navy: #0f172a;
+  --bg: #f2f3f5; --card: #fff; --text: #0d0f12; --muted: #6b6f76; --line: #e3e4e7;
+  --primary: #1c1f24; --on-primary: #fff; --accent: #f59e0b; --green: #16a34a; --red: #dc2626; --navy: #0d0f12;
 }
 @media (prefers-color-scheme: dark) {
-  :root { --bg: #0a1020; --card: #111a2e; --text: #e2e8f0; --muted: #94a3b8; --line: #1f2a40; --green: #22c55e; --red: #f87171; }
+  :root { --bg: #0d0f12; --card: #17191d; --text: #e6e7ea; --muted: #9a9ea6; --line: #2a2d33; --primary: #f59e0b; --on-primary: #111; --green: #22c55e; --red: #f87171; }
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 Inter, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing: antialiased; }
 a { color: var(--primary); }
 input, select, button { font: inherit; color: inherit; }
-header { background: linear-gradient(120deg, var(--navy), #13224a); color: #fff; padding: calc(28px + env(safe-area-inset-top)) 16px 64px; }
+header { background: linear-gradient(120deg, var(--navy), #1d2026); color: #fff; padding: calc(28px + env(safe-area-inset-top)) 16px 64px; }
 .tete { max-width: 1080px; margin: 0 auto; }
 .marque { display: inline-flex; align-items: center; gap: 8px; font-weight: 800; letter-spacing: .02em; color: var(--accent); text-decoration: none; font-size: 14px; }
 .marque img { width: 26px; height: 26px; }
 h1 { margin: 14px 0 6px; font-size: clamp(24px, 4vw, 34px); letter-spacing: -.02em; line-height: 1.2; }
-header p { margin: 0; color: #cbd5e1; max-width: 640px; }
+header p { margin: 0; color: #c9cbd0; max-width: 640px; }
 main { max-width: 1080px; margin: -40px auto 0; padding: 0 16px 24px; display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(310px, 1fr)); align-items: start; }
-.outil { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 18px; box-shadow: 0 6px 24px rgba(15, 23, 42, .06); display: grid; gap: 12px; }
+.outil { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 18px; box-shadow: 0 6px 24px rgba(0, 0, 0, .06); display: grid; gap: 12px; }
 .outil h2 { margin: 0; font-size: 18px; }
 .outil > p { margin: 0; color: var(--muted); font-size: 14px; }
 .champs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -51,7 +51,7 @@ label { font-size: 13px; font-weight: 600; color: var(--muted); }
 .cta { max-width: 1080px; margin: 8px auto 0; padding: 0 16px; }
 .cta div { background: var(--navy); color: #fff; border-radius: 18px; padding: 22px; display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
 .cta h2 { margin: 0 0 4px; font-size: 19px; }
-.cta p { margin: 0; color: #cbd5e1; font-size: 14px; }
+.cta p { margin: 0; color: #c9cbd0; font-size: 14px; }
 .cta .texte { flex: 1 1 320px; }
 .bouton { display: inline-flex; align-items: center; padding: 12px 18px; border-radius: 12px; background: var(--accent); color: #111; font-weight: 700; text-decoration: none; }
 footer { text-align: center; color: var(--muted); font-size: 12.5px; padding: 24px 16px calc(24px + env(safe-area-inset-bottom)); }

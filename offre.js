@@ -153,12 +153,12 @@ const Offre = (() => {
     const w = window.open('', '_blank');
     if (!w) { toast("Autorise l'ouverture de fenêtres pour imprimer l'offre."); return; }
     w.document.write(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Offre ${esc(saved.numero)}</title>
-      <style>body{font:14px/1.5 Inter,Arial,sans-serif;color:#0f172a;max-width:720px;margin:32px auto;padding:0 20px}
-      header{display:flex;align-items:center;gap:12px;border-bottom:2px solid #0f172a;padding-bottom:12px}
-      header img{width:48px;height:48px;border-radius:10px;object-fit:contain}.garage{margin-left:auto;text-align:right;font-size:12px;color:#334155}h1{margin:0;font-size:22px}.muted{color:#64748b}
-      .bloc{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:20px 0}.bloc div{border:1px solid #e2e8f0;border-radius:10px;padding:12px}
-      table{width:100%;border-collapse:collapse;margin-top:10px}td{padding:8px 0;border-bottom:1px solid #e2e8f0}td:last-child{text-align:right;white-space:nowrap}
-      .total td{font-size:18px;font-weight:700;border-bottom:0;border-top:2px solid #0f172a}footer{margin-top:28px;font-size:12px;color:#64748b}
+      <style>body{font:14px/1.5 Inter,Arial,sans-serif;color:#0d0f12;max-width:720px;margin:32px auto;padding:0 20px}
+      header{display:flex;align-items:center;gap:12px;border-bottom:2px solid #0d0f12;padding-bottom:12px}
+      header img{width:48px;height:48px;border-radius:10px;object-fit:contain}.garage{margin-left:auto;text-align:right;font-size:12px;color:#334155}h1{margin:0;font-size:22px}.muted{color:#6b6f76}
+      .bloc{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:20px 0}.bloc div{border:1px solid #e6e7ea;border-radius:10px;padding:12px}
+      table{width:100%;border-collapse:collapse;margin-top:10px}td{padding:8px 0;border-bottom:1px solid #e6e7ea}td:last-child{text-align:right;white-space:nowrap}
+      .total td{font-size:18px;font-weight:700;border-bottom:0;border-top:2px solid #0d0f12}footer{margin-top:28px;font-size:12px;color:#6b6f76}
       @media print{button{display:none}}</style></head><body>
       <header><img src="${esc(g.logo || location.href.replace(/[^/#]*(#.*)?$/, '') + 'logo.svg')}" alt=""><div><h1>Offre ${esc(saved.numero)}</h1><span class="muted">du ${dateFr(saved.date)} · valable 15 jours</span></div>
         ${g.nom ? `<div class="garage"><strong>${esc(g.nom)}</strong><br>${esc([g.adresse, [g.codePostal, g.ville].filter(Boolean).join(' ')].filter(Boolean).join(', '))}<br>${esc([g.telephone, g.email].filter(Boolean).join(' · '))}${g.siret ? '<br>SIRET ' + esc(g.siret) : ''}</div>` : ''}</header>

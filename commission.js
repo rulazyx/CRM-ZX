@@ -40,10 +40,10 @@ const Commission = (() => {
     const w = window.open('', '_blank');
     if (!w) return false;
     w.document.write(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>${e(titre)}</title>
-      <style>body{font:13px/1.5 Inter,Arial,sans-serif;color:#0f172a;max-width:780px;margin:24px auto;padding:0 18px}
-      h1{font-size:20px;margin:0 0 2px}h4{margin:14px 0 2px;font-size:13.5px}p{margin:0 0 6px}.muted{color:#64748b;font-size:12px}
-      .parties{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:18px 0}.parties div{border:1px solid #cbd5e1;border-radius:8px;padding:10px}
-      table{width:100%;border-collapse:collapse}th,td{border:1px solid #cbd5e1;padding:6px 8px;text-align:left;vertical-align:top}th{background:#f1f5f9}
+      <style>body{font:13px/1.5 Inter,Arial,sans-serif;color:#0d0f12;max-width:780px;margin:24px auto;padding:0 18px}
+      h1{font-size:20px;margin:0 0 2px}h4{margin:14px 0 2px;font-size:13.5px}p{margin:0 0 6px}.muted{color:#6b6f76;font-size:12px}
+      .parties{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:18px 0}.parties div{border:1px solid #c9cbd0;border-radius:8px;padding:10px}
+      table{width:100%;border-collapse:collapse}th,td{border:1px solid #c9cbd0;padding:6px 8px;text-align:left;vertical-align:top}th{background:#f1f5f9}
       .r{text-align:right}.tot{width:auto;min-width:300px;margin:10px 0 0 auto}.mention{font-size:11.5px;color:#334155;margin-top:14px}
       .alerte{background:#fef3c7;border:1px solid #f59e0b;border-radius:8px;padding:8px 10px}
       @media print{.noprint{display:none}body{margin:0 auto}}</style></head><body>
@@ -80,7 +80,7 @@ const Commission = (() => {
     const m = manques(a, l);
     const client = [l.client_prenom, l.client_nom].filter(Boolean).join(' ');
     return fenetre('Facture ' + l.facture_numero, `${m.length ? `<p class="alerte">⚠ À compléter avant d'envoyer : ${e(m.join(', '))}.</p>` : ''}
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;border-bottom:2px solid #0f172a;padding-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;border-bottom:2px solid #0d0f12;padding-bottom:10px">
         <div><h1>Facture ${e(l.facture_numero)}</h1><span class="muted">Date : ${e(date(l.vendu_le))} · Commission d'apport d'affaires</span></div>
         <div style="text-align:right;font-size:12px"><strong>${e(a.raison_sociale || [a.prenom, a.nom].join(' '))}</strong><br>${e(adresse(a.adresse, a.code_postal, a.ville))}<br>
           ${e([a.telephone, a.email].filter(Boolean).join(' · '))}${a.siret ? '<br>SIRET ' + e(a.siret) : ''}${a.tva ? '<br>TVA ' + e(a.tva) : ''}</div></div>
