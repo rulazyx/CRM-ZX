@@ -16,6 +16,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="vitrine.css">
+<link rel="stylesheet" href="anim.css">
 <link rel="stylesheet" href="marque.css">
 <style>
 /* Site du réseau : en-tête Ocaz, deux pages (Véhicules, Notre réseau), garage indiqué sur chaque véhicule. */
@@ -27,9 +28,7 @@ header { padding-bottom: 0; }
 .accroche { max-width: 1120px; margin: 14px auto 0; }
 .accroche h1 { margin: 0; font-size: clamp(22px, 4vw, 30px); letter-spacing: -.02em; line-height: 1.2; }
 .accroche p { margin: 6px 0 0; color: #c9cbd0; }
-nav.pages { max-width: 1120px; margin: 16px auto 0; display: flex; gap: 4px; }
-nav.pages a { padding: 11px 18px 13px; border-radius: 12px 12px 0 0; text-decoration: none; font-weight: 600; color: #c9cbd0; }
-nav.pages a.actif { background: var(--bg); color: var(--text); }
+nav.pages { max-width: 1120px; margin: 12px auto 0; overflow-x: auto; scrollbar-width: none; }
 .reseau-main .filtres { margin-top: 0; grid-template-columns: minmax(0, 2fr) repeat(5, minmax(0, 1fr)); }
 @media (max-width: 900px) { .reseau-main .filtres { grid-template-columns: 1fr 1fr; } .reseau-main .filtres input { grid-column: 1 / -1; } }
 .filtre-garage { flex-wrap: wrap;  display: inline-flex; align-items: center; gap: 8px; background: var(--card); border: 1px solid var(--line); border-radius: 99px; padding: 5px 6px 5px 12px; margin: 0 0 10px; font-size: 14px; }
@@ -70,7 +69,7 @@ form .accord input { width: auto; margin-top: 2px; }
   <div class="tete"><a class="marque" href="reseau" style="text-decoration:none"><img src="logo.svg" alt=""><b class="ocaz-marque">OCAZ</b><span class="ocaz-marque reseau-mot">Réseau</span></a></div>
   <div class="accroche"><h1>Roulez local, achetez pro</h1>
     <p id="resume">Chargement…</p></div>
-  <nav class="pages"><a href="#vehicules" data-page="vehicules" class="actif">Véhicules</a><a href="#reseau" data-page="reseau">Notre réseau</a></nav>
+  <nav class="pages onglets" aria-label="Pages"><a href="./" id="onglet-recherche">Recherche</a><a href="#vehicules" data-page="vehicules" class="actif">Véhicules</a><a href="#reseau" data-page="reseau">Le réseau</a></nav>
 </header>
 <main class="reseau-main">
   <div class="apercu" id="apercu" hidden>Aperçu avec le garage de démonstration : ces véhicules « Démo » ne sont visibles que par ce lien, pas par les visiteurs du site.</div>

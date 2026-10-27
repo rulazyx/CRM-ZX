@@ -1,0 +1,47 @@
+/* Animations du site public (accueil et réseau) : courtes, et coupées si le visiteur a demandé moins de mouvement. */
+@view-transition { navigation: auto; }
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: .25s; }
+
+/* Onglets Recherche / Véhicules / Le réseau : trait jaune sous l'onglet actif. */
+.onglets { display: flex; gap: 4px; }
+.onglets a { position: relative; padding: 11px 16px 13px; text-decoration: none; font-weight: 600; color: #c9cbd0; transition: color .2s; }
+.onglets a:hover { color: #fff; }
+.onglets a::after { content: ''; position: absolute; left: 14px; right: 14px; bottom: 4px; height: 3px; border-radius: 3px; background: var(--accent, #f59e0b);
+  transform: scaleX(0); transition: transform .3s cubic-bezier(.2, .8, .2, 1); }
+.onglets a:hover::after { transform: scaleX(.4); }
+.onglets a.actif { color: #fff; }
+.onglets a.actif::after { transform: scaleX(1); }
+
+/* Apparition : les éléments montent en fondu, l'un après l'autre (--i = rang). */
+@keyframes monte { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes fondu { from { opacity: 0; } to { opacity: 1; } }
+@keyframes zoom-doux { from { transform: scale(1.06); } to { transform: scale(1); } }
+@keyframes ouvre { from { opacity: 0; transform: translateY(18px) scale(.98); } to { opacity: 1; transform: none; } }
+.entre { animation: monte .5s cubic-bezier(.2, .8, .2, 1) backwards; animation-delay: calc(var(--i, 0) * 60ms); }
+.apparait { animation: fondu .35s ease both; }
+
+/* Cartes des véhicules et des garages : montent un peu au survol, la photo zoome légèrement. */
+.carte, .g-carte, .a-diapo { transition: transform .2s ease, box-shadow .2s ease, border-color .2s; }
+.g-carte:hover { transform: translateY(-3px); border-color: var(--accent, #f59e0b); box-shadow: 0 12px 30px rgba(0, 0, 0, .18); }
+.photo, .a-photo { overflow: hidden; }
+.photo img, .a-photo img { transition: transform .45s cubic-bezier(.2, .8, .2, 1); }
+.carte:hover .photo img, .a-diapo:hover .a-photo img { transform: scale(1.05); }
+.a-diapo.active .a-photo img { animation: zoom-doux 5s ease-out both; }
+
+/* Boutons : petit enfoncement au clic. */
+.btn, .a-cta, .a-fleches button, .profil { transition: transform .15s ease, filter .15s; }
+.btn:active, .a-cta:active, .a-fleches button:active { transform: scale(.96); }
+.a-fleches button:hover:not(:disabled) { filter: brightness(1.08); transform: scale(1.06); }
+.a-cta .compte-anim { display: inline-block; }
+.a-cta svg { transition: transform .2s; }
+.a-cta:hover svg { transform: translateX(4px); }
+
+/* Fiche d'un véhicule et panneau « Plus de filtres ». */
+dialog[open] { animation: ouvre .3s cubic-bezier(.2, .8, .2, 1); }
+dialog[open]::backdrop { animation: fondu .3s ease; }
+.a-plus:not([hidden]) { animation: monte .3s cubic-bezier(.2, .8, .2, 1) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  @view-transition { navigation: none; }
+  *, *::before, *::after { animation-duration: 1ms !important; animation-delay: 0ms !important; transition-duration: 1ms !important; }
+}

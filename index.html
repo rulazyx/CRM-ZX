@@ -27,17 +27,19 @@
 <link rel="stylesheet" href="vitrine.css">
 <link rel="stylesheet" href="marque.css">
 <link rel="stylesheet" href="accueil.css">
+<link rel="stylesheet" href="anim.css">
 </head>
 <body class="accueil">
 <header class="a-tete">
   <a class="marque" href="./"><img src="logo.svg" alt=""><b class="ocaz-marque">OCAZ</b></a>
-  <nav class="a-nav"><a href="reseau" data-lien>Véhicules</a><a href="reseau#reseau" data-lien>Notre réseau</a><a class="a-pro" href="rejoindre">Vous êtes un pro ?</a></nav>
+  <a class="a-pro" href="rejoindre">Vous êtes un pro ?</a>
+  <nav class="onglets a-onglets" aria-label="Pages"><a class="actif" href="./" aria-current="page" data-lien>Recherche</a><a href="reseau" data-lien>Véhicules</a><a href="reseau#reseau" data-lien>Le réseau</a></nav>
 </header>
 <main class="a-main">
-  <h1 class="a-titre">Roulez local, achetez pro</h1>
-  <p class="a-sous">Les voitures d'occasion des garages professionnels de La Réunion, en contact direct avec le vendeur.</p>
+  <h1 class="a-titre entre" style="--i:0">Roulez local, achetez pro</h1>
+  <p class="a-sous entre" style="--i:1">Les voitures d'occasion des garages professionnels de La Réunion, en contact direct avec le vendeur.</p>
   <div class="a-grille">
-    <form class="a-carte a-recherche" id="recherche" action="reseau">
+    <form class="a-carte a-recherche entre" style="--i:2" id="recherche" action="reseau">
       <h2 class="a-lab">Prix</h2>
       <div class="a-deux">
         <label class="a-champ"><span>Minimum (€)</span><input id="r-min" name="prixMin" type="number" inputmode="numeric" min="0" step="500" placeholder="0"></label>
@@ -61,7 +63,7 @@
       <button type="button" class="a-lien" id="btn-plus" aria-expanded="false">Plus de filtres</button>
       <a class="a-cta" id="cta" href="reseau"><span id="cta-texte">Voitures d'occasion</span><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4l13 8-13 8z" fill="currentColor"/></svg></a>
     </form>
-    <section class="a-carte a-carrousel" aria-label="Dernières annonces">
+    <section class="a-carte a-carrousel entre" style="--i:3" aria-label="Dernières annonces">
       <h2 class="a-car-titre">Dernières annonces</h2>
       <div class="a-diapos" id="diapos"><div class="a-vide">Chargement…</div></div>
       <div class="a-car-bas"><div class="a-points" id="points"></div>
