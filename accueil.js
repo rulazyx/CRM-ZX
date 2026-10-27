@@ -31,10 +31,22 @@
     const q = Recherche.versUrl(critere());
     return 'reseau' + ((q || apercu) ? '?' + [q, apercu ? 'demo=1' : ''].filter(Boolean).join('&') : '') + hash;
   }
+  // Le nombre du bouton défile jusqu'à la nouvelle valeur.
+  let affiche = 0, anim = null;
+  const calme = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function ecrire(n) { $('#cta-texte').textContent = `${n.toLocaleString('fr-FR')} voiture${n > 1 ? 's' : ''} d'occasion`; }
   function majCompte() {
     const n = vehicules.filter(v => Recherche.correspond(v, critere())).length;
-    $('#cta-texte').textContent = `${n.toLocaleString('fr-FR')} voiture${n > 1 ? 's' : ''} d'occasion`;
     $('#cta').href = lienResultats();
+    cancelAnimationFrame(anim);
+    const de = affiche, debut = performance.now(), duree = calme ? 0 : 450;
+    const pas = t => {
+      const k = duree ? Math.min(1, (t - debut) / duree) : 1;
+      affiche = Math.round(de + (n - de) * (1 - Math.pow(1 - k, 3)));
+      ecrire(affiche);
+      if (k < 1) anim = requestAnimationFrame(pas);
+    };
+    anim = requestAnimationFrame(pas);
   }
 
   // Curseur à deux poignées, relié aux champs Minimum et Maximum.
@@ -110,7 +122,10 @@
     $('#diapos').scrollTo({ left: diapo * ($('#diapos').clientWidth + 12), behavior: 'smooth' });
     marquer();
   }
-  function marquer() { [...$('#points').children].forEach((b, i) => b.classList.toggle('actif', i === diapo)); }
+  function marquer() {
+    [...$('#points').children].forEach((b, i) => b.classList.toggle('actif', i === diapo));
+    [...$('#diapos').children].forEach((d, i) => d.classList.toggle('active', i === diapo));
+  }
   function lancer() { clearInterval(minuterie); minuterie = setInterval(() => aller(diapo + 1), 5000); }
 
   async function demarrer() {

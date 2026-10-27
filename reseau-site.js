@@ -83,7 +83,7 @@
       return;
     }
     await signer(liste.map(v => v.photos[0]));
-    $('#grille').innerHTML = liste.map(v => `<button type="button" class="carte" data-cle="${esc(cle(v))}">
+    $('#grille').innerHTML = liste.map((v, i) => `<button type="button" class="carte entre" style="--i:${Math.min(i, 12)}" data-cle="${esc(cle(v))}">
       <div class="photo">${v.photos[0] && urls.get(v.photos[0]) ? `<img src="${esc(urls.get(v.photos[0]))}" alt="${esc(nom(v))}" loading="lazy">` : ICO.auto}
         ${v.reserve ? '<span class="reserve">Réservé</span>' : ''}${v.demo ? '<span class="badge-demo">Démo</span>' : ''}${v.photos.length > 1 ? `<span class="nb">📷 ${v.photos.length}</span>` : ''}</div>
       <div class="corps"><h2>${esc(nom(v))}</h2>
@@ -155,10 +155,10 @@
   function listeGarages() {
     const tries = [...garages].sort((a, b) => b.vehicules.length - a.vehicules.length || (a.garage.nom || '').localeCompare(b.garage.nom || '', 'fr'));
     $('#compte-garages').textContent = `${pluriel(garages.length, 'garage')} partenaire${garages.length > 1 ? 's' : ''} à La Réunion`;
-    $('#garages').innerHTML = tries.map(({ id, garage: g, vehicules: vs, demo }) => {
+    $('#garages').innerHTML = tries.map(({ id, garage: g, vehicules: vs, demo }, i) => {
       const wa = lienWa(g, 'Bonjour, je vous contacte depuis le site Ocaz.');
       const site = g.site ? (/^https?:\/\//.test(g.site) ? g.site : 'https://' + g.site) : '';
-      return `<article class="g-carte">
+      return `<article class="g-carte entre" style="--i:${Math.min(i, 12)}">
         <div class="g-tete">${logo(g)}<div><h2>${esc(g.nom || 'Garage')}${demo ? ' <span class="badge-demo statique">Démo</span>' : ''}</h2>
           <div class="adr">${esc([g.adresse, ville(g)].filter(Boolean).join(', '))}</div></div></div>
         <span class="nbv">${vs.length ? pluriel(vs.length, 'véhicule') + ' en vente' : 'Stock bientôt en ligne'}</span>
@@ -173,8 +173,15 @@
   // ---------- Navigation ----------
   function page(nomPage) {
     document.querySelectorAll('nav.pages a').forEach(a => a.classList.toggle('actif', a.dataset.page === nomPage));
-    $('#page-vehicules').hidden = nomPage !== 'vehicules';
-    $('#page-reseau').hidden = nomPage !== 'reseau';
+    ['vehicules', 'reseau'].forEach(n => {
+      const sec = $('#page-' + n), avant = sec.hidden;
+      sec.hidden = nomPage !== n;
+      // Changement d'onglet : la page qui arrive apparaît en fondu, ses cartes montent une à une.
+      if (avant && !sec.hidden) { sec.classList.remove('apparait'); void sec.offsetWidth; sec.classList.add('apparait'); rejouer(sec); }
+    });
+  }
+  function rejouer(zone) {
+    zone.querySelectorAll('.entre').forEach(el => { el.classList.remove('entre'); void el.offsetWidth; el.classList.add('entre'); });
   }
   function voirGarage(id) {
     garageFiltre = id;
@@ -228,6 +235,7 @@
   });
   $('#garages').addEventListener('click', e => { const b = e.target.closest('[data-garage]'); if (b) voirGarage(b.dataset.garage); });
   window.addEventListener('hashchange', suivreAdresse);
+  if (apercu) $('#onglet-recherche').href = './?demo=1';
   $('#dlg').addEventListener('close', () => { if (location.hash.startsWith('#v/')) history.replaceState(null, '', '#vehicules'); });
   $('#dlg').addEventListener('click', e => { if (e.target.id === 'dlg') $('#dlg').close(); });
   demarrer();
