@@ -660,3 +660,34 @@ do $$ begin
     'Alex Démo', '2026-10', now(), 'Alex Démo', true)
   on conflict (email) do nothing;
 end $$;
+
+-- Site du réseau : demandes des visiteurs (reseau.html). Les véhicules partagés sont dans crm_reseau (section « Réseau Ocaz »).
+-- La demande arrive dans l'appli du garage propriétaire du véhicule, comme celles de sa vitrine.
+-- D'où vient la demande : vitrine du garage ou site du réseau.
+alter table public.crm_demandes add column if not exists origine text not null default 'vitrine';
+
+create or replace function public.crm_reseau_demande(p_garage uuid, p_nom text, p_tel text, p_email text, p_message text, p_vid text, p_vehicule text, p_accord boolean)
+returns boolean language plpgsql security definer set search_path = public as $$
+begin
+  if not exists (select 1 from public.crm_reseau r join public.crm_entreprises e on e.id = r.entreprise_id
+      where r.entreprise_id = p_garage and r.actif and not e.demo) then
+    raise exception 'Garage introuvable';
+  end if;
+  if coalesce(p_vid, '') <> '' and not exists (select 1 from public.crm_reseau r, jsonb_array_elements(r.data -> 'vehicules') v
+      where r.entreprise_id = p_garage and v ->> 'id' = p_vid) then
+    raise exception 'Véhicule introuvable';
+  end if;
+  -- Le visiteur accepte que ses coordonnées soient transmises au garage (RGPD).
+  if not coalesce(p_accord, false) then raise exception 'Accord du visiteur manquant'; end if;
+  if length(trim(coalesce(p_nom, ''))) not between 1 and 80 or length(coalesce(p_tel, '')) > 30 or length(coalesce(p_email, '')) > 120
+     or length(coalesce(p_message, '')) > 1000 or (trim(coalesce(p_tel, '')) = '' and trim(coalesce(p_email, '')) = '') then
+    raise exception 'Demande incomplète';
+  end if;
+  if (select count(*) from public.crm_demandes where entreprise_id = p_garage and cree_le > now() - interval '1 hour') >= 30 then
+    raise exception 'Trop de demandes, réessayez plus tard';
+  end if;
+  insert into public.crm_demandes (entreprise_id, nom, telephone, email, message, vehicule_id, vehicule, origine)
+  values (p_garage, trim(p_nom), trim(coalesce(p_tel, '')), trim(coalesce(p_email, '')), trim(coalesce(p_message, '')), coalesce(p_vid, ''), left(coalesce(p_vehicule, ''), 160), 'reseau');
+  return true;
+end $$;
+grant execute on function public.crm_reseau_demande(uuid, text, text, text, text, text, text, boolean) to anon, authenticated;
