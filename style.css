@@ -37,7 +37,7 @@ header {
 }
 .brand { display: flex; align-items: center; gap: 9px; flex: 1; }
 .brand img { border-radius: 9px; }
-.brand-name { font-weight: 800; font-size: 20px; letter-spacing: .02em; font-style: italic; }
+.brand-name { font-size: 19px; }
 #tabs { display: none; gap: 2px; background: rgba(255, 255, 255, .06); padding: 4px; border-radius: 12px; }
 #tabs button {
   display: flex; align-items: center; gap: 7px;
