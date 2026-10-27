@@ -22,6 +22,23 @@ dans `app.js` pour pouvoir brancher une base en ligne (Supabase) et synchroniser
 
 Pour l'essayer en local : ouvrir `index.html` dans un navigateur.
 
+## Adresse ocaz.re
+
+Le fichier `CNAME` (contenu : `ocaz.re`) relie l'appli au domaine. Il ne doit arriver sur `main` qu'une fois les DNS en place,
+sinon GitHub Pages redirige vers une adresse qui ne répond pas encore.
+
+Chez le registrar, zone DNS de `ocaz.re` :
+- 4 enregistrements `A` sur `@` : 185.199.108.153, 185.199.109.153, 185.199.110.153, 185.199.111.153
+- (facultatif) 4 `AAAA` sur `@` : 2606:50c0:8000::153, 2606:50c0:8001::153, 2606:50c0:8002::153, 2606:50c0:8003::153
+- 1 `CNAME` sur `www` vers `rulazyx.github.io.`
+- supprimer les anciens `A`/`AAAA`/`CNAME` posés par défaut par le registrar (page de parking)
+
+Ensuite : GitHub > Settings > Pages > Custom domain = `ocaz.re`, puis cocher Enforce HTTPS quand le certificat est prêt.
+Les anciennes adresses `rulazyx.github.io/CRM-ZX/...` sont redirigées automatiquement (`/CRM-ZX/vitrine.html` → `ocaz.re/vitrine.html`),
+y compris les codes d'intégration `integrer.js` déjà collés sur des sites de garages.
+Dans Supabase > Authentication > URL Configuration : Site URL = `https://ocaz.re`, ajouter `https://ocaz.re/**` aux Redirect URLs.
+Les données gardées dans le navigateur dépendent de l'adresse : sur ocaz.re il faut se reconnecter, la synchronisation recharge le compte.
+
 ## Synchronisation PC / téléphone (Supabase)
 
 1. Créer un compte gratuit sur supabase.com puis un projet.
