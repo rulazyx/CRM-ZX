@@ -66,8 +66,15 @@ const Facture = (() => {
     ${num(o.acompte) ? `<tr><td>Acompte versé</td><td style="text-align:right">− ${eur2(o.acompte)}</td></tr>` : ''}
     ${f.reprise || num(o.acompte) ? `<tr><th>Reste à payer</th><th style="text-align:right">${eur2(f.ttc - f.reprise - num(o.acompte))}</th></tr>` : ''}</table>`;
 
+  // Mail prérempli pour le client de la vente.
+  function envoi(o, quoi, opts) {
+    const c = db.get('clients', o.clientId) || {};
+    const g = Param.get().garage;
+    return { ...opts, email: c.email || '', texte: `Bonjour ${c.prenom || clientNom(c)},\n\nVous trouverez ci-joint ${quoi} pour le véhicule ${vehiculeNom(db.get('vehicules', o.vehiculeId))}.\n\nCordialement,\n${g.nom || ''}`.trim() };
+  }
+
   // Bon de commande : engagement du client, à signer.
-  function bonDeCommande(o) {
+  function bonDeCommande(o, opts = {}) {
     const f = lignes(o);
     Papiers.fenetre(`Bon de commande ${o.numero}`, `${entete('Bon de commande', `n° ${esc(o.numero)} du ${dateFr(o.date)}`)}
       ${blocs(o, f.v)}${tableau(f, false)}${totaux(f, o, false)}
@@ -75,7 +82,7 @@ const Facture = (() => {
         <div class="case"><b>Livraison prévue</b>${o.dateLivraison ? dateFr(o.dateLivraison) : '&nbsp;'}</div></div>
       <p class="muted" style="margin-top:12px">Véhicule d'occasion vendu en l'état, tel que vu et essayé par l'acheteur. Garantie légale de conformité (articles L217-3 et suivants du Code de la consommation) et garantie des vices cachés (articles 1641 et suivants du Code civil).
         ${Param.get().facture.conditions ? '<br>' + esc(Param.get().facture.conditions) : ''}</p>
-      <div class="signatures"><div>Le vendeur (cachet et signature)</div><div>L'acheteur : « Bon pour commande », date et signature</div></div>`);
+      <div class="signatures"><div>Le vendeur (cachet et signature)</div><div>L'acheteur : « Bon pour commande », date et signature</div></div>`, '', envoi(o, 'notre bon de commande', opts));
   }
 
   // Facture : numérotée à la première édition (FAC-année-0001), sans trou ni doublon dans l'année.
@@ -86,8 +93,8 @@ const Facture = (() => {
     db.upsert('commandes', { id: o.id, factureNumero: `FAC-${an}-${String(max + 1).padStart(4, '0')}`, factureDate: today(), regimeTva: o.regimeTva || regimeDefaut() });
     return db.get('commandes', o.id);
   }
-  function facture(o) {
-    if (!o.factureNumero && !confirm('Éditer la facture ? Elle recevra le prochain numéro de facture, qui ne pourra plus changer.')) return;
+  function facture(o, opts = {}) {
+    if (!o.factureNumero && !confirm('Éditer la facture ? Elle recevra le prochain numéro de facture, qui ne pourra plus changer.')) return false;
     o = numeroter(o);
     const f = lignes(o);
     const p = Param.get().facture;
@@ -96,7 +103,8 @@ const Facture = (() => {
       ${MENTION[f.regime] ? `<p style="margin-top:12px"><b>${esc(MENTION[f.regime])}</b></p>` : ''}
       <p class="muted">Date de livraison : ${dateFr(o.dateLivree || o.dateLivraison || o.factureDate)} · Paiement : ${esc(o.paiement || 'comptant')}${num(o.acompte) ? ` · acompte de ${euros(o.acompte)} reçu` : ''}.
         Pas d'escompte pour paiement anticipé. Clients professionnels : pénalités de retard au taux légal majoré et indemnité forfaitaire de 40 € pour frais de recouvrement.
-        ${p.conditions ? '<br>' + esc(p.conditions) : ''}</p>`);
+        ${p.conditions ? '<br>' + esc(p.conditions) : ''}</p>`, '', envoi(o, 'votre facture', opts));
+    return true;
   }
 
   // Export pour le comptable : une ligne par facture (CSV lisible dans Excel).
@@ -148,5 +156,5 @@ const Facture = (() => {
     });
   }
 
-  return { init, section, exporter, lignes, REGIMES };
+  return { init, section, exporter, lignes, bonDeCommande, facture, REGIMES };
 })();

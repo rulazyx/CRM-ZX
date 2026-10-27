@@ -245,6 +245,7 @@ const TABS = {
       { k: 'co2', l: 'CO₂ (g/km)', type: 'number' },
       { k: 'portes', l: 'Portes', type: 'number' },
       { k: 'places', l: 'Places', type: 'number' },
+      { k: 'equipements', l: 'Options et équipements (repris sur l\'offre)', type: 'textarea', full: true },
       { k: '_fiche', type: 'fiche' },
       { k: 'statut', l: 'Statut', type: 'select', options: Object.keys(STATUT_VEHICULE), def: 'Reprise à étudier' },
       { k: '_reprise', l: 'Reprise', type: 'section' },
@@ -357,6 +358,7 @@ const TABS = {
         if (v.statut !== statut) db.upsert('vehicules', { id: v.id, statut, ...(statut === 'Vendu' ? { dateVente: today() } : {}) });
         if (statut === 'Vendu') { Papiers.rappelRetrait(db.get('vehicules', v.id)); Depot.apresVente(db.get('vehicules', v.id), o); }
       }
+      repriseSuitCommande(o);
       // Date de livraison effective : sert au CA du mois et à la rotation du stock (onglet Données).
       if (o.statut === 'Livrée' && !o.dateLivree) db.upsert('commandes', { id: o.id, dateLivree: today() });
       // La liste suit la vente dans son nouveau sous-onglet.
@@ -365,6 +367,7 @@ const TABS = {
     afterDelete: o => {
       const v = db.get('vehicules', o.vehiculeId);
       if (v && v.statut === 'Réservé') db.upsert('vehicules', { id: v.id, statut: 'En stock' });
+      repriseSuitCommande({ ...o, statut: 'Annulée' });
     },
   },
 
@@ -792,6 +795,70 @@ function wireClient() {
 
 let apresEnregistrement = null;
 
+// Reprise portée par une offre : le passage en commande la valide (le véhicule entre en préparation),
+// l'annulation ou la suppression de la commande la renvoie dans les reprises à étudier.
+function repriseSuitCommande(o) {
+  const r = db.get('vehicules', o.repriseId);
+  if (!r) return;
+  if (['Commande', 'Livraison', 'Livrée'].includes(o.statut) && REPRISE.includes(r.statut)) {
+    const saved = db.upsert('vehicules', { id: r.id, statut: 'En préparation',
+      prixAchat: r.prixAchat || r.prixPropose || '', dateEntree: r.dateEntree || today(), achatDate: r.achatDate || today(),
+      achatPaiement: r.achatPaiement || "Déduit d'une vente (reprise)", vendeurId: r.vendeurId || o.clientId, repriseCommandeId: o.id });
+    Papiers.apresAchat(saved);
+    toast(`Reprise ${vehiculeNom(r)} validée : elle passe en préparation`);
+  } else if (o.statut === 'Annulée' && r.repriseCommandeId === o.id && ['En préparation', 'En stock'].includes(r.statut)) {
+    // Retirée du livre de police seulement si c'est la dernière ligne (pas de trou dans la numérotation).
+    const dernier = num(r.policeNumero) && num(r.policeNumero) === Math.max(...db.all('vehicules').map(x => num(x.policeNumero)));
+    db.upsert('vehicules', { id: r.id, statut: 'Reprise à étudier', dateEntree: '', repriseCommandeId: '', ...(dernier ? { policeNumero: '' } : {}) });
+    toast(`Commande annulée : la reprise ${vehiculeNom(r)} repasse en reprise à étudier`);
+  }
+}
+
+// Menu d'une offre ou d'une commande : imprimer, envoyer, modifier, étape suivante, supprimer.
+const ETAPE_MENU = { 'Commande': ['Passer en livraison', 'Livraison'], 'Livraison': ['Marquer comme livrée', 'Livrée'] };
+function menuCommande(id) {
+  const o = db.get('commandes', id);
+  if (!o) return;
+  const offre = o.statut === 'Offre';
+  const quoi = offre ? "l'offre" : 'la commande';
+  // Commande livrée : le document à imprimer ou envoyer est la facture.
+  const docVente = opts => (o.statut === 'Livrée' ? Facture.facture(o, opts) : Facture.bonDeCommande(o, opts));
+  const fermer = () => $('#dlg-actions').close();
+  const actions = [
+    [`🖨 Imprimer ${quoi}`, () => offre ? Offre.afficher(id) : docVente()],
+    [`✉ Envoyer ${quoi}`, () => offre ? Offre.afficher(id, { envoyer: true }) : docVente({ envoyer: true })],
+    [`✎ Modifier ${quoi}`, () => offre ? Offre.ouvrir(id) : openForm(id)],
+    offre ? ['✓ Passer en commande', () => { if (Offre.accepter(id)) { render(); toast(`Offre ${o.numero} passée en commande`); } }, 'success']
+      : ETAPE_MENU[o.statut] && [`✓ ${ETAPE_MENU[o.statut][0]}`, () => {
+        const avant = { ...o };
+        db.upsert('commandes', { id, statut: ETAPE_MENU[o.statut][1] });
+        const saved = db.get('commandes', id);
+        TABS.commandes.afterSave(saved, avant);
+        render();
+        toast(`${o.numero} : ${saved.statut.toLowerCase()}`);
+      }, 'success'],
+    [`🗑 Supprimer ${quoi}`, () => {
+      if (offre) { if (Offre.supprimer(id)) render(); return; }
+      if (!confirm(`Supprimer définitivement la commande ${o.numero} ?`)) return;
+      db.remove('commandes', id);
+      TABS.commandes.afterDelete(o);
+      toast('Commande supprimée');
+      render();
+    }, 'danger'],
+  ].filter(Boolean);
+  $('#actions-titre').textContent = (offre ? 'Offre ' : 'Commande ') + o.numero;
+  $('#actions-sous').textContent = [clientNom(db.get('clients', o.clientId)), vehiculeNom(db.get('vehicules', o.vehiculeId)), euros(o.prix)].filter(Boolean).join(' · ');
+  $('#actions-liste').innerHTML = actions.map(([l, , cls], i) => `<button type="button" data-action="${i}" class="${cls || ''}">${esc(l)}</button>`).join('');
+  $('#actions-liste').onclick = e => {
+    const b = e.target.closest('[data-action]');
+    if (!b) return;
+    fermer();
+    actions[b.dataset.action][1]();
+  };
+  $('#dlg-actions').showModal();
+}
+$('#actions-fermer').addEventListener('click', () => $('#dlg-actions').close());
+
 const relances = o => db.all('planning').filter(r => r.commandeId === o.id && r.type === 'Relance client' && !r.fait);
 
 function wireCommande() {
@@ -905,6 +972,7 @@ function afficherSync(status, user, role) {
     if (Sync.entreprise?.nom && !Param.get().garage.nom) Param.save({ garage: { ...Param.get().garage, nom: Sync.entreprise.nom } });
     // Compte démo vide : on le remplit avec des données d'exemple.
     if (demo && !db.all('vehicules').length) Demo.remplir();
+    else if (demo) Demo.completerPhotos();
     // Démo : le garage fait partie du réseau, pour montrer les leads de l'apporteur de démo.
     if (demo && !Param.get().reseau.accepteLe) Param.save({ reseau: { ...Param.get().reseau, actif: true, accepteLe: new Date().toISOString() } });
     if (onglet === 'donnees') render();
@@ -1214,7 +1282,7 @@ $('#list').addEventListener('click', e => {
   if (jour) { openForm(null, { date: jour.dataset.jour }); return; }
   const card = e.target.closest('.card');
   if (!card) return;
-  if (current === 'commandes' && db.get('commandes', card.dataset.id)?.statut === 'Offre') Offre.ouvrir(card.dataset.id);
+  if (current === 'commandes') menuCommande(card.dataset.id);
   else if (current === 'vehicules' && REPRISE.includes(db.get('vehicules', card.dataset.id)?.statut)) Reprise.ouvrir(card.dataset.id);
   else openForm(card.dataset.id);
 });

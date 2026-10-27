@@ -47,7 +47,7 @@ const Commission = (() => {
       .r{text-align:right}.tot{width:auto;min-width:300px;margin:10px 0 0 auto}.mention{font-size:11.5px;color:#334155;margin-top:14px}
       .alerte{background:#fef3c7;border:1px solid #f59e0b;border-radius:8px;padding:8px 10px}
       @media print{.noprint{display:none}body{margin:0 auto}}</style></head><body>
-      ${corps}<p class="noprint"><button onclick="print()">Imprimer / enregistrer en PDF</button></p></body></html>`);
+      ${DocBarre.html(titre)}<div id="doc">${corps}</div></body></html>`);
     w.document.close();
     return true;
   }

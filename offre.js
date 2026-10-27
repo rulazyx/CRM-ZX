@@ -140,14 +140,40 @@ const Offre = (() => {
     return saved;
   }
 
-  // Document imprimable (ou à enregistrer en PDF depuis le navigateur).
-  function imprimer() {
-    const saved = enregistrer();
-    if (!saved) return;
+  // Options et équipements saisis sur la fiche du véhicule (une par ligne ou séparées par des virgules).
+  const equipements = v => String(v?.equipements || '').split(/\n|,|;|•/).map(x => x.trim()).filter(Boolean);
+
+  // Fiche du véhicule reprise dans l'offre : photo, caractéristiques et options principales.
+  function ficheVehicule(v, photo) {
+    const infos = [['Marque', v.marque], ['Modèle', [v.modele, v.finition].filter(Boolean).join(' ')], ['Année', v.miseEnCirculation ? dateFr(v.miseEnCirculation) : v.annee],
+      ['Kilométrage', v.kilometrage && km(v.kilometrage)], ['Carburant', v.carburant], ['Boîte', v.boite], ['Couleur', v.couleur], ['Type', v.type],
+      ['Puissance', [v.puissanceCh && v.puissanceCh + ' ch', v.puissanceFiscale && v.puissanceFiscale + ' CV'].filter(Boolean).join(' · ')],
+      ['Portes / places', [v.portes, v.places].filter(Boolean).join(' / ')], ['Immatriculation', v.immatriculation]].filter(([, x]) => x);
+    const opts = equipements(v);
+    return `<section class="fiche"><h2>${esc(vehiculeNom(v))}</h2>
+      <div class="fiche-grille">${photo ? `<img class="photo" src="${esc(photo)}" alt="" onerror="this.remove()">` : ''}
+        <dl>${infos.map(([l, x]) => `<div><dt>${esc(l)}</dt><dd>${esc(x)}</dd></div>`).join('')}</dl></div>
+      ${opts.length ? `<h3>Options et équipements</h3><ul class="options">${opts.map(o => `<li>${esc(o)}</li>`).join('')}</ul>` : ''}</section>`;
+  }
+
+  // Préparation du calcul d'une offre enregistrée, sans ouvrir l'écran de l'offre.
+  function charger(o) {
+    etat = JSON.parse(JSON.stringify(o));
+    etat.pack = etat.pack || {};
+    etat.pack.items = packsOffre(etat.pack, false);
+  }
+
+  // Document de l'offre, avec la barre Retour / Envoyer par mail / Enregistrer le PDF.
+  // La fenêtre s'ouvre tout de suite (sinon le navigateur la bloque), puis se remplit une fois la photo trouvée.
+  async function documentOffre(saved, { envoyer = false } = {}) {
+    const w = window.open('', '_blank');
+    if (!w) { toast("Autorise l'ouverture de fenêtres pour afficher l'offre."); return; }
+    w.document.write('<!doctype html><meta charset="utf-8"><title>Offre</title><p style="font:15px Arial,sans-serif;padding:30px">Préparation de l’offre…</p>');
     const c = calcul();
     const cl = db.get('clients', saved.clientId);
     const p = saved.pack;
     const g = Param.get().garage;
+    const photo = await Promise.race([Photos.premiere(c.v), new Promise(r => setTimeout(() => r(c.v?.image || ''), 4000))]);
     const lignes = [
       ['Prix de vente ' + vehiculeNom(c.v), euros(c.prixVente)],
       c.rep && ['Reprise ' + libelleV(c.rep), '− ' + euros(c.reprise)],
@@ -156,25 +182,65 @@ const Offre = (() => {
       num(saved.remise) && ['Remise', '− ' + euros(saved.remise)],
       ['Carte grise (estimation)', euros(c.cg.total)],
     ].filter(Boolean);
-    const w = window.open('', '_blank');
-    if (!w) { toast("Autorise l'ouverture de fenêtres pour imprimer l'offre."); return; }
-    w.document.write(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Offre ${esc(saved.numero)}</title>
-      <style>body{font:14px/1.5 Inter,Arial,sans-serif;color:#0d0f12;max-width:720px;margin:32px auto;padding:0 20px}
-      header{display:flex;align-items:center;gap:12px;border-bottom:2px solid #0d0f12;padding-bottom:12px}
-      header img{width:48px;height:48px;border-radius:10px;object-fit:contain}.garage{margin-left:auto;text-align:right;font-size:12px;color:#334155}h1{margin:0;font-size:22px}.muted{color:#6b6f76}
-      .bloc{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:20px 0}.bloc div{border:1px solid #e6e7ea;border-radius:10px;padding:12px}
+    const titre = `Offre ${saved.numero}${g.nom ? ' · ' + g.nom : ''}`;
+    w.document.open();
+    w.document.write(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(titre)}</title>
+      <style>body{font:14px/1.5 Inter,Arial,sans-serif;color:#0d0f12;max-width:760px;margin:16px auto;padding:0 16px;background:#fff}
+      #doc{padding:8px 4px;container-type:inline-size}header{display:flex;align-items:center;gap:12px;border-bottom:2px solid #0d0f12;padding-bottom:12px}
+      header img{width:56px;height:56px;border-radius:10px;object-fit:contain}.garage{margin-left:auto;text-align:right;font-size:12px;color:#334155}h1{margin:0;font-size:22px}.muted{color:#6b6f76}
+      .bloc{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:18px 0}.bloc div{border:1px solid #e6e7ea;border-radius:10px;padding:12px}
+      .fiche{border:1px solid #e6e7ea;border-radius:12px;padding:14px;margin:18px 0}.fiche h2{margin:0 0 10px;font-size:17px}.fiche h3{margin:14px 0 6px;font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:#4b4f56}
+      .fiche-grille{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;align-items:start}.fiche-grille .photo{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:10px;background:#f1f2f4}
+      .fiche-grille:not(:has(.photo)){grid-template-columns:1fr}
+      dl{margin:0;display:grid;grid-template-columns:1fr 1fr;gap:6px 12px}dl div{border-bottom:1px solid #eef0f2;padding-bottom:4px}dt{font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:#6b6f76}dd{margin:0;font-weight:600}
+      .options{margin:0;padding:0;list-style:none;display:flex;flex-wrap:wrap;gap:6px}.options li{border:1px solid #d9dbe0;border-radius:999px;padding:3px 10px;font-size:12.5px}
       table{width:100%;border-collapse:collapse;margin-top:10px}td{padding:8px 0;border-bottom:1px solid #e6e7ea}td:last-child{text-align:right;white-space:nowrap}
-      .total td{font-size:18px;font-weight:700;border-bottom:0;border-top:2px solid #0d0f12}footer{margin-top:28px;font-size:12px;color:#6b6f76}
-      @media print{button{display:none}}</style></head><body>
-      <header><img src="${esc(g.logo || location.href.replace(/[^/#]*(#.*)?$/, '') + 'logo.svg')}" alt=""><div><h1>Offre ${esc(saved.numero)}</h1><span class="muted">du ${dateFr(saved.date)} · valable 15 jours</span></div>
+      .total td{font-size:18px;font-weight:700;border-bottom:0;border-top:2px solid #0d0f12}footer{margin-top:24px;font-size:12px;color:#6b6f76}
+      @container (max-width:560px){.bloc,.fiche-grille{grid-template-columns:1fr}}</style></head><body>
+      ${DocBarre.html(titre, { email: cl?.email || '', envoyer, sujet: titre,
+        texte: `Bonjour ${cl?.prenom || clientNom(cl)},\n\nVous trouverez ci-joint notre offre pour le véhicule ${vehiculeNom(c.v)}.\n\nCordialement,\n${g.nom || ''}`.trim() })}
+      <div id="doc">
+      <header>${g.logo ? `<img src="${esc(g.logo)}" alt="">` : ''}<div><h1>Offre ${esc(saved.numero)}</h1><span class="muted">du ${dateFr(saved.date)} · valable 15 jours</span></div>
         ${g.nom ? `<div class="garage"><strong>${esc(g.nom)}</strong><br>${esc([g.adresse, [g.codePostal, g.ville].filter(Boolean).join(' ')].filter(Boolean).join(', '))}<br>${esc([g.telephone, g.email].filter(Boolean).join(' · '))}${g.siret ? '<br>SIRET ' + esc(g.siret) : ''}</div>` : ''}</header>
       <div class="bloc"><div><strong>Client</strong><br>${esc(clientNom(cl))}<br>${esc([cl?.telephone, cl?.email].filter(Boolean).join(' · '))}<br>${esc([cl?.adresse, cl?.codePostal, cl?.ville].filter(Boolean).join(' '))}</div>
-      <div><strong>Véhicule</strong><br>${esc(libelleV(c.v))}<br>${esc([c.v.annee, km(c.v.kilometrage), c.v.carburant, c.v.boite].filter(Boolean).join(' · '))}</div></div>
+      <div><strong>Prix</strong><br>Véhicule : ${euros(c.prixVente)}${c.rep ? `<br>Reprise de votre ${esc(vehiculeNom(c.rep))} : − ${euros(c.reprise)}` : ''}<br><b>Total : ${euros(c.total)}</b></div></div>
+      ${ficheVehicule(c.v, photo)}
       <table>${lignes.map(([l, m]) => `<tr><td>${esc(l)}</td><td>${m}</td></tr>`).join('')}
       <tr class="total"><td>Total à payer</td><td>${euros(c.total)}</td></tr></table>
-      <footer>Montant de la carte grise estimé selon le barème de La Réunion ; seul le montant ANTS fait foi.</footer>
-      <p><button onclick="print()">Imprimer / enregistrer en PDF</button></p></body></html>`);
+      <footer>Montant de la carte grise estimé selon le barème de La Réunion ; seul le montant ANTS fait foi.</footer></div></body></html>`);
     w.document.close();
+  }
+
+  // Bouton de l'écran de l'offre : enregistre puis affiche le document.
+  function imprimer() {
+    const saved = enregistrer();
+    if (saved) documentOffre(saved);
+  }
+
+  // Depuis la liste des offres (menu d'actions).
+  function afficher(id, opts) {
+    const o = db.get('commandes', id);
+    if (!o) return;
+    charger(o);
+    documentOffre(o, opts);
+  }
+
+  // Offre acceptée : elle passe en commande (la reprise éventuelle est validée par la commande).
+  function accepter(id) {
+    const o = db.get('commandes', id);
+    if (!o) return null;
+    charger(o);
+    etat.statut = 'Commande';
+    return enregistrer();
+  }
+
+  function supprimer(id) {
+    const o = db.get('commandes', id);
+    if (!o || !confirm(`Supprimer définitivement l'offre ${o.numero} ?`)) return false;
+    db.remove('commandes', o.id);
+    TABS.commandes.afterDelete(o);
+    relances(o).forEach(r => db.remove('planning', r.id));
+    return true;
   }
 
   function init() {
@@ -242,15 +308,11 @@ const Offre = (() => {
       next?.(saved);
     });
     $('#btn-offre-supprimer').addEventListener('click', () => {
-      if (!confirm('Supprimer définitivement cette offre ?')) return;
-      const o = db.get('commandes', etat.id);
-      db.remove('commandes', etat.id);
-      TABS.commandes.afterDelete(o);
-      relances(o).forEach(r => db.remove('planning', r.id));
+      if (!supprimer(etat.id)) return;
       $('#dlg-offre').close();
       render();
     });
   }
 
-  return { ouvrir, init, reglages, carteGrise };
+  return { ouvrir, init, reglages, carteGrise, afficher, accepter, supprimer };
 })();

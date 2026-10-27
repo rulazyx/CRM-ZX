@@ -156,6 +156,31 @@ const Photos = (() => {
     return chemins.map(p => liens.get(p) || '');
   }
 
+  // Image recadrée en JPEG 4:3 (documents PDF et photos d'exemple). null si l'image ne peut pas être lue.
+  async function jpeg(src, w = 1000, h = 750) {
+    try {
+      const i = await charger(src);
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      const k = Math.max(w / i.naturalWidth, h / i.naturalHeight);
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, w, h);
+      ctx.drawImage(i, (w - i.naturalWidth * k) / 2, (h - i.naturalHeight * k) / 2, i.naturalWidth * k, i.naturalHeight * k);
+      return c;
+    } catch (e) { return null; }
+  }
+
+  // Photo principale d'un véhicule (documents) : la 1re photo prise, sinon la photo du modèle.
+  async function premiere(v) {
+    const ph = liste(v);
+    let src = v?.image || '';
+    if (ph.length) { try { const [u] = await signer([ph[0]]); if (u) src = u; } catch (e) { /* hors ligne */ } }
+    // Copie recadrée intégrée au document : le PDF la reprend telle quelle.
+    const c = src && await jpeg(src);
+    try { return c ? c.toDataURL('image/jpeg', 0.88) : src; } catch (e) { return src; }
+  }
+
   // Galerie affichée sur la fiche du véhicule (téléphone et ordinateur).
   async function galerie(el, v) {
     const ph = liste(v);
@@ -252,5 +277,5 @@ const Photos = (() => {
     });
   }
 
-  return { estTelephone, deblocable, galerie, ouvrir, init, MIN, MAX };
+  return { estTelephone, deblocable, galerie, premiere, jpeg, BUCKET, ouvrir, init, MIN, MAX };
 })();
