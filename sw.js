@@ -1,14 +1,7 @@
-// Service worker minimal : rend l'appli installable et l'ouvre même sans réseau.
-// Toujours le réseau d'abord (pour avoir la dernière version), la copie locale seulement en secours.
-const CACHE = 'crmzx-v1';
+// L'appli des pros a déménagé sur pro.ocaz.re : ce fichier retire l'ancien service worker des téléphones qui l'avaient installé.
 self.addEventListener('install', () => self.skipWaiting());
-self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
-self.addEventListener('fetch', e => {
-  const req = e.request;
-  if (req.method !== 'GET' || new URL(req.url).origin !== location.origin) return;
-  e.respondWith(fetch(req).then(res => {
-    const copie = res.clone();
-    caches.open(CACHE).then(c => c.put(req, copie));
-    return res;
-  }).catch(() => caches.match(req).then(r => r || caches.match('./'))));
-});
+self.addEventListener('activate', e => e.waitUntil(
+  caches.keys().then(cles => Promise.all(cles.map(c => caches.delete(c))))
+    .then(() => self.registration.unregister())
+    .then(() => self.clients.matchAll({ type: 'window' }))
+    .then(fenetres => fenetres.forEach(f => f.navigate(f.url)))));
