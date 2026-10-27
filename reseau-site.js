@@ -17,6 +17,8 @@
   };
 
   const cfg = window.CRMZX_CONFIG || {};
+  // Aperçu avec le garage de démonstration : seulement par le lien reseau.html?demo=1.
+  const apercu = new URLSearchParams(location.search).has('demo');
   let client = null, garages = [], vehicules = [], urls = new Map(), garageFiltre = '';
 
   // Numéro WhatsApp : seulement pour un mobile (La Réunion 0692/0693, Mayotte 0639, métropole 06/07).
@@ -79,7 +81,7 @@
     await signer(liste.map(v => v.photos[0]));
     $('#grille').innerHTML = liste.map(v => `<button type="button" class="carte" data-cle="${esc(cle(v))}">
       <div class="photo">${v.photos[0] && urls.get(v.photos[0]) ? `<img src="${esc(urls.get(v.photos[0]))}" alt="${esc(nom(v))}" loading="lazy">` : ICO.auto}
-        ${v.reserve ? '<span class="reserve">Réservé</span>' : ''}${v.photos.length > 1 ? `<span class="nb">📷 ${v.photos.length}</span>` : ''}</div>
+        ${v.reserve ? '<span class="reserve">Réservé</span>' : ''}${v.demo ? '<span class="badge-demo">Démo</span>' : ''}${v.photos.length > 1 ? `<span class="nb">📷 ${v.photos.length}</span>` : ''}</div>
       <div class="corps"><h2>${esc(nom(v))}</h2>
         <span class="infos">${esc([v.annee, km(v.kilometrage), v.carburant, v.boite].filter(Boolean).join(' · '))}</span>
         <span class="prix">${euros(v.prix)}</span>
@@ -110,7 +112,7 @@
           ${autres > 0 ? `<button type="button" class="lien" id="voir-garage">Voir ses ${pluriel(autres, 'autre')} véhicule${autres > 1 ? 's' : ''}</button>` : ''}</div></div>
         <div class="actions">${wa ? `<a class="btn wa" href="${esc(wa)}" target="_blank" rel="noopener">${ICO.wa} WhatsApp</a>` : ''}
           ${g.telephone ? `<a class="btn" href="${lienTel(g)}">${ICO.tel} Appeler le garage</a>` : ''}</div>
-        <form id="demande">
+        ${v.demo ? '<p class="note-demo">Véhicule de démonstration : le formulaire est désactivé.</p>' : `        <form id="demande">
           <h3>Être recontacté par le garage</h3>
           <div class="deux"><input name="nom" placeholder="Votre nom *" required maxlength="80" autocomplete="name">
             <input name="tel" type="tel" placeholder="Téléphone *" required maxlength="30" autocomplete="tel"></div>
@@ -120,13 +122,13 @@
             <span>J'accepte que mes coordonnées soient transmises à ${esc(g.nom || 'ce garage')} pour être recontacté(e) au sujet de ce véhicule.</span></label>
           <button type="submit" class="btn primaire">Envoyer ma demande</button>
           <p id="demande-etat" hidden></p>
-        </form>
+        </form>`}
       </div>`;
     const car = $('#carrousel');
     car.addEventListener('scroll', () => { const c = $('#compteur'); if (c) c.textContent = `${Math.round(car.scrollLeft / car.clientWidth) + 1} / ${v.photos.length}`; });
     $('#fermer').addEventListener('click', () => $('#dlg').close());
     $('#voir-garage')?.addEventListener('click', () => { $('#dlg').close(); voirGarage(v.garageId); });
-    $('#demande').addEventListener('submit', async e => {
+    $('#demande')?.addEventListener('submit', async e => {
       e.preventDefault();
       const f = new FormData(e.target), etat = $('#demande-etat'), btn = e.target.querySelector('button');
       btn.disabled = true; btn.textContent = 'Envoi…';
@@ -149,11 +151,11 @@
   function listeGarages() {
     const tries = [...garages].sort((a, b) => b.vehicules.length - a.vehicules.length || (a.garage.nom || '').localeCompare(b.garage.nom || '', 'fr'));
     $('#compte-garages').textContent = `${pluriel(garages.length, 'garage')} partenaire${garages.length > 1 ? 's' : ''} à La Réunion`;
-    $('#garages').innerHTML = tries.map(({ id, garage: g, vehicules: vs }) => {
+    $('#garages').innerHTML = tries.map(({ id, garage: g, vehicules: vs, demo }) => {
       const wa = lienWa(g, 'Bonjour, je vous contacte depuis le site Ocaz.');
       const site = g.site ? (/^https?:\/\//.test(g.site) ? g.site : 'https://' + g.site) : '';
       return `<article class="g-carte">
-        <div class="g-tete">${logo(g)}<div><h2>${esc(g.nom || 'Garage')}</h2>
+        <div class="g-tete">${logo(g)}<div><h2>${esc(g.nom || 'Garage')}${demo ? ' <span class="badge-demo statique">Démo</span>' : ''}</h2>
           <div class="adr">${esc([g.adresse, ville(g)].filter(Boolean).join(', '))}</div></div></div>
         <span class="nbv">${vs.length ? pluriel(vs.length, 'véhicule') + ' en vente' : 'Stock bientôt en ligne'}</span>
         <div class="actions">${vs.length ? `<button type="button" class="btn primaire" data-garage="${esc(id)}">Voir ses véhicules</button>` : ''}
@@ -190,7 +192,13 @@
     client = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseCle, { auth: { persistSession: false } });
     const { data, error } = await client.rpc('crm_reseau_lire');
     if (error) { erreur('Le site du réseau est momentanément indisponible.'); return; }
-    garages = (data || []).map(r => ({ id: r.entreprise_id || r.id, garage: r.garage || {}, vehicules: r.vehicules || [] }));
+    let demo = [];
+    if (apercu) {
+      const r = await client.rpc('crm_reseau_demo');
+      demo = (r.data || []).map(x => ({ ...x, demo: true }));
+      $('#apercu').hidden = false;
+    }
+    garages = [...demo, ...(data || [])].map(r => ({ id: r.entreprise_id || r.id, garage: r.garage || {}, vehicules: (r.vehicules || []).map(v => ({ ...v, demo: !!r.demo })), demo: !!r.demo }));
     vehicules = garages.flatMap(g => g.vehicules.map(v => ({ ...v, photos: v.photos || [], garageId: g.id, garage: g.garage })));
     $('#resume').textContent = `${pluriel(vehicules.length, 'véhicule')} chez ${pluriel(garages.length, 'garage')} partenaire${garages.length > 1 ? 's' : ''}, en contact direct avec le vendeur.`;
     filtres();
