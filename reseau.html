@@ -32,7 +32,7 @@ nav.pages a { padding: 11px 18px 13px; border-radius: 12px 12px 0 0; text-decora
 nav.pages a.actif { background: var(--bg); color: var(--text); }
 .reseau-main .filtres { margin-top: 0; grid-template-columns: minmax(0, 2fr) repeat(5, minmax(0, 1fr)); }
 @media (max-width: 900px) { .reseau-main .filtres { grid-template-columns: 1fr 1fr; } .reseau-main .filtres input { grid-column: 1 / -1; } }
-.filtre-garage { display: inline-flex; align-items: center; gap: 8px; background: var(--card); border: 1px solid var(--line); border-radius: 99px; padding: 5px 6px 5px 12px; margin: 0 0 10px; font-size: 14px; }
+.filtre-garage { flex-wrap: wrap;  display: inline-flex; align-items: center; gap: 8px; background: var(--card); border: 1px solid var(--line); border-radius: 99px; padding: 5px 6px 5px 12px; margin: 0 0 10px; font-size: 14px; }
 .filtre-garage button { border: 0; background: color-mix(in srgb, var(--line) 70%, var(--card)); border-radius: 99px; width: 26px; height: 26px; cursor: pointer; }
 .carte .garage { color: var(--muted); font-size: 13px; display: flex; align-items: center; gap: 5px; border-top: 1px solid var(--line); margin-top: 6px; padding-top: 8px; }
 .garages { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
@@ -107,6 +107,7 @@ form .accord input { width: auto; margin-top: 2px; }
 
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="recherche.js"></script>
 <script src="reseau-site.js"></script>
 </body>
 </html>
