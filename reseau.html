@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Ocaz Réseau | Roulez local, achetez pro</title>
+<title>Ocaz | Roulez local, achetez pro</title>
 <meta name="description" content="Toutes les voitures d'occasion des marchands du réseau Ocaz à La Réunion : photos, prix, et contact direct avec le garage.">
 <meta name="theme-color" content="#0f172a">
 <link rel="icon" href="logo.svg" type="image/svg+xml">
@@ -21,6 +21,15 @@ header { padding-bottom: 0; }
 .accroche { max-width: 1120px; margin: 14px auto 0; }
 .accroche h1 { margin: 0; font-size: clamp(22px, 4vw, 30px); letter-spacing: -.02em; line-height: 1.2; }
 .accroche p { margin: 6px 0 0; color: #cbd5e1; }
+.profils { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 14px; }
+.profils > span { color: #cbd5e1; font-size: 14px; margin-right: 2px; }
+.profil { display: grid; padding: 8px 14px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, .25); background: rgba(255, 255, 255, .08); text-decoration: none; line-height: 1.25; }
+.profil:hover { background: rgba(255, 255, 255, .16); }
+.profil b { font-size: 14.5px; }
+.profil small { color: #cbd5e1; font-size: 12.5px; }
+.profil:first-of-type { background: var(--accent); border-color: var(--accent); color: #111; }
+.profil:first-of-type small { color: #3b2a05; }
+@media (max-width: 560px) { .profils > span { width: 100%; } .profil { flex: 1 1 0; text-align: center; padding: 8px 6px; align-self: stretch; align-content: center; } .profil small { display: none; } }
 nav.pages { max-width: 1120px; margin: 16px auto 0; display: flex; gap: 4px; }
 nav.pages a { padding: 11px 18px 13px; border-radius: 12px 12px 0 0; text-decoration: none; font-weight: 600; color: #cbd5e1; }
 nav.pages a.actif { background: var(--bg); color: var(--text); }
@@ -53,7 +62,11 @@ form .accord input { width: auto; margin-top: 2px; }
 <header>
   <div class="tete"><a class="marque" href="reseau.html" style="text-decoration:none"><img src="logo.svg" alt=""><b class="ocaz-marque">OCAZ</b><span class="ocaz-marque reseau-mot">Réseau</span></a></div>
   <div class="accroche"><h1>Roulez local, achetez pro</h1>
-    <p id="resume">Chargement…</p></div>
+    <p id="resume">Chargement…</p>
+    <div class="profils" role="group" aria-label="Vous êtes"><span>Vous êtes :</span>
+      <a class="profil" href="#vehicules" id="profil-particulier"><b>Particulier</b><small>Je cherche une voiture</small></a>
+      <a class="profil" href="./"><b>Revendeur</b><small>Mon espace garage</small></a>
+      <a class="profil" href="apporteur.html"><b>Apporteur d'affaires</b><small>Mon espace et mes commissions</small></a></div></div>
   <nav class="pages"><a href="#vehicules" data-page="vehicules" class="actif">Véhicules</a><a href="#reseau" data-page="reseau">Notre réseau</a></nav>
 </header>
 <main class="reseau-main">
