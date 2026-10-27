@@ -17,6 +17,7 @@
 .ap-tete { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
 .ap-tete h2 { margin: 0; font-size: 21px; }
 .ap-tete .primary { display: inline-flex; align-items: center; gap: 6px; }
+.ap-astuce { margin: -4px 0 0; }
 .ap-filtres { display: grid; grid-template-columns: minmax(0, 2fr) repeat(3, minmax(0, 1fr)); gap: 8px; }
 .ap-loupe { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
 @media (max-width: 700px) { .ap-filtres { grid-template-columns: 1fr 1fr; } .ap-filtres .search { grid-column: 1 / -1; } }

@@ -149,7 +149,7 @@
     const n = Object.fromEntries(Object.entries(VUES).map(([k, s]) => [k, leads.filter(x => s.includes(x.lead.statut)).length]));
     const lot = leads.filter(x => VUES[vue].includes(x.lead.statut));
     return `<div class="ap-page">
-      <div class="ap-tete"><h2>Suivi de mes leads</h2><button type="button" class="primary" data-aller="reseau">${icon('plus', 18)}<span>Nouveau lead</span></button></div>
+      <div class="ap-tete"><h2>Suivi de mes leads</h2></div>
       <div class="chips">${Object.keys(VUES).map(k => `<button type="button" class="chip${k === vue ? ' active' : ''}" data-vue="${k}">${k}${n[k] ? ' · ' + n[k] : ''}</button>`).join('')}</div>
       ${lot.length ? `<div class="list">${lot.map(carteLead).join('')}</div>` : `<div class="empty">${ILLUS.clients}<strong>${vue === 'En cours' ? 'Aucun lead en cours' : 'Rien ici pour le moment'}</strong>
         <span>${vue === 'En cours' ? 'Choisis un véhicule dans « Réseau » et envoie les coordonnées de ton contact au garage.' : 'Tes leads arrivent ici quand le garage les fait avancer.'}</span></div>`}
@@ -206,6 +206,7 @@
     if (moi.statut !== 'actif') return '<div class="empty"><strong>Compte suspendu</strong><span>Contacte Ocaz pour réactiver ton accès au réseau.</span></div>';
     return `<div class="ap-page">
       <div class="ap-tete"><h2>Véhicules du réseau</h2><span class="muted">${liste.length} véhicule(s)</span></div>
+      <p class="hint ap-astuce">Touche un véhicule pour envoyer un lead au garage.</p>
       <div class="ap-filtres">
         <div class="search"><span class="ap-loupe">${icon('recherche', 18)}</span><input id="r-q" type="search" placeholder="Marque, modèle, ville…" value="${esc(filtres.q)}" autocomplete="off"></div>
         <select id="r-type" aria-label="Type"><option value="">Tous types</option>${opts('type').map(o => `<option${o === filtres.type ? ' selected' : ''}>${esc(o)}</option>`).join('')}</select>
