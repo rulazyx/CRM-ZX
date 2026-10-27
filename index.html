@@ -24,34 +24,57 @@
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="vitrine.css">
 <link rel="stylesheet" href="marque.css">
-<style>
-:root { --accent: #f59e0b; }
-* { box-sizing: border-box; }
-html, body { margin: 0; min-height: 100%; }
-body { min-height: 100vh; min-height: 100dvh; display: grid; place-items: center; padding: 16px; color: #fff;
-  font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  background: radial-gradient(circle at 50% 40%, #2a2f37 0%, #0d0f12 70%) fixed #0d0f12; }
-.accueil { width: min(440px, 100%); display: grid; gap: 12px; justify-items: center; text-align: center; }
-.accueil img { border-radius: 18px; box-shadow: 0 18px 50px rgba(0, 0, 0, .5); }
-.accueil h1 { margin: 0; font-size: 28px; font-weight: 600; }
-.accueil-slogan { margin: -6px 0 10px; color: #c9cbd0; font-size: 16px; }
-.accueil-particulier { width: 100%; display: grid; gap: 4px; justify-items: center; padding: 22px 18px; border-radius: 20px;
-  background: var(--accent); color: #111; text-decoration: none; box-shadow: 0 20px 60px rgba(0, 0, 0, .45); transition: transform .15s; }
-.accueil-particulier:hover, .accueil-particulier:focus-visible { transform: translateY(-3px); outline: none; }
-.accueil-ico { width: 56px; height: 56px; border-radius: 16px; display: grid; place-items: center; background: rgba(0, 0, 0, .1); margin-bottom: 4px; }
-.accueil-particulier b { font-size: 20px; }
-.accueil-particulier small { font-size: 15px; color: #3b2a05; }
-</style>
+<link rel="stylesheet" href="accueil.css">
 </head>
-<body>
-<main class="accueil">
-  <img src="logo.svg" alt="" width="72" height="72">
-  <h1><span class="brand-name">OCAZ</span></h1>
-  <p class="accueil-slogan">Roulez local, achetez pro</p>
-  <a class="accueil-particulier" href="reseau">
-    <span class="accueil-ico"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 16H3.8a.8.8 0 0 1-.8-.8v-3.1c0-.7.4-1.3 1-1.6l1.3-.6L7 6.9A2 2 0 0 1 8.8 6h6.4a2 2 0 0 1 1.8 1l1.7 2.9 1.3.6c.6.3 1 .9 1 1.6v3.1a.8.8 0 0 1-.8.8H19"/><path d="M9 16h6"/><circle cx="7" cy="16" r="2"/><circle cx="17" cy="16" r="2"/><path d="M5.5 10h13"/></svg></span>
-    <b>Particulier</b><small>Je cherche une voiture</small></a>
+<body class="accueil">
+<header class="a-tete">
+  <a class="marque" href="./"><img src="logo.svg" alt=""><b class="ocaz-marque">OCAZ</b></a>
+  <nav class="a-nav"><a href="reseau" data-lien>Véhicules</a><a href="reseau#reseau" data-lien>Notre réseau</a><a class="a-pro" href="rejoindre">Vous êtes un pro ?</a></nav>
+</header>
+<main class="a-main">
+  <h1 class="a-titre">Roulez local, achetez pro</h1>
+  <p class="a-sous">Les voitures d'occasion des garages professionnels de La Réunion, en contact direct avec le vendeur.</p>
+  <div class="a-grille">
+    <form class="a-carte a-recherche" id="recherche" action="reseau">
+      <h2 class="a-lab">Prix</h2>
+      <div class="a-deux">
+        <label class="a-champ"><span>Minimum (€)</span><input id="r-min" name="prixMin" type="number" inputmode="numeric" min="0" step="500" placeholder="0"></label>
+        <label class="a-champ"><span>Maximum (€)</span><input id="r-max" name="prixMax" type="number" inputmode="numeric" min="0" step="500" placeholder="Sans limite"></label>
+      </div>
+      <div class="a-curseur" id="curseur">
+        <div class="a-piste"><div class="a-plage" id="plage"></div></div>
+        <input type="range" id="c-min" min="0" max="50000" step="500" value="0" aria-label="Prix minimum">
+        <input type="range" id="c-max" min="0" max="50000" step="500" value="50000" aria-label="Prix maximum">
+      </div>
+      <h2 class="a-lab"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.1-7-11.5A7 7 0 0 1 19 9.5C19 14.9 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg> Localisation</h2>
+      <input class="a-saisie" id="r-lieu" name="lieu" list="communes" placeholder="Ville ou code postal" autocomplete="off">
+      <datalist id="communes"></datalist>
+      <div class="a-plus" id="plus" hidden>
+        <label class="a-champ"><span>Kilométrage</span><select id="r-km" name="kmMax"></select></label>
+        <label class="a-champ"><span>Année</span><select id="r-annee" name="anneeMin"></select></label>
+        <label class="a-champ"><span>Couleur</span><select id="r-couleur" name="couleur"></select></label>
+        <label class="a-champ"><span>Type de véhicule</span><select id="r-type" name="type"></select></label>
+        <label class="a-champ"><span>Énergie</span><select id="r-energie" name="energie"></select></label>
+      </div>
+      <button type="button" class="a-lien" id="btn-plus" aria-expanded="false">Plus de filtres</button>
+      <a class="a-cta" id="cta" href="reseau"><span id="cta-texte">Voitures d'occasion</span><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4l13 8-13 8z" fill="currentColor"/></svg></a>
+    </form>
+    <section class="a-carte a-carrousel" aria-label="Dernières annonces">
+      <h2 class="a-car-titre">Dernières annonces</h2>
+      <div class="a-diapos" id="diapos"><div class="a-vide">Chargement…</div></div>
+      <div class="a-car-bas"><div class="a-points" id="points"></div>
+        <div class="a-fleches"><button type="button" id="prec" aria-label="Annonce précédente"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 4L4 12l13 8z" fill="currentColor"/></svg></button>
+          <button type="button" id="suiv" aria-label="Annonce suivante"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4l13 8-13 8z" fill="currentColor"/></svg></button></div></div>
+    </section>
+  </div>
 </main>
+<footer class="pied-legal">
+<nav aria-label="Informations"><a href="rejoindre">Rejoindre le réseau</a> · <a href="mentions-legales">Mentions légales</a> · <a href="confidentialite">Confidentialité</a> · <a href="cgu">CGU</a> · <a href="mailto:contact@ocaz.re">contact@ocaz.re</a></nav></footer>
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="recherche.js"></script>
+<script src="accueil.js"></script>
 </body>
 </html>

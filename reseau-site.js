@@ -19,6 +19,8 @@
   const cfg = window.CRMZX_CONFIG || {};
   // Aperçu avec le garage de démonstration : seulement par le lien reseau.html?demo=1.
   const apercu = new URLSearchParams(location.search).has('demo');
+  // Critères venus de la recherche de l'accueil (prix, lieu, kilométrage…).
+  let critere = Recherche.depuisUrl();
   let client = null, garages = [], vehicules = [], urls = new Map(), garageFiltre = '';
 
   // Numéro WhatsApp : seulement pour un mobile (La Réunion 0692/0693, Mayotte 0639, métropole 06/07).
@@ -66,13 +68,15 @@
       carb = $('#f-carburant').value, commune = $('#f-ville').value, tri = $('#f-tri').value;
     const liste = vehicules.filter(v => (!q || norm([nom(v), v.annee, v.couleur, v.type, v.garage.nom].join(' ')).includes(q))
       && (!marque || v.marque === marque) && (!prix || (Number(v.prix) || 0) <= prix) && (!carb || v.carburant === carb)
-      && (!commune || v.garage.ville === commune) && (!garageFiltre || v.garageId === garageFiltre));
+      && (!commune || v.garage.ville === commune) && (!garageFiltre || v.garageId === garageFiltre) && Recherche.correspond(v, critere));
     const p = v => Number(v.prix) || 0;
     if (tri === 'prix') liste.sort((a, b) => p(a) - p(b));
     if (tri === 'prix-') liste.sort((a, b) => p(b) - p(a));
     if (tri === 'km') liste.sort((a, b) => (Number(a.kilometrage) || 0) - (Number(b.kilometrage) || 0));
     const g = garages.find(x => x.id === garageFiltre);
-    $('#filtre-garage').innerHTML = g ? `<span class="filtre-garage">Véhicules de <b>${esc(g.garage.nom)}</b><button type="button" id="sans-garage" aria-label="Voir tous les garages">✕</button></span>` : '';
+    const rech = Recherche.resume(critere);
+    $('#filtre-garage').innerHTML = (g ? `<span class="filtre-garage">Véhicules de <b>${esc(g.garage.nom)}</b><button type="button" id="sans-garage" aria-label="Voir tous les garages">✕</button></span> ` : '')
+      + (rech.length ? `<span class="filtre-garage">Votre recherche : <b>${esc(rech.join(' · '))}</b><button type="button" id="sans-recherche" aria-label="Effacer la recherche">✕</button></span>` : '');
     $('#compte').textContent = `${pluriel(liste.length, 'véhicule')} disponible${liste.length > 1 ? 's' : ''}`;
     if (!liste.length) {
       $('#grille').innerHTML = `<div class="vide">${vehicules.length ? 'Aucun véhicule ne correspond à ces critères.' : 'Aucun véhicule en ligne pour le moment : revenez bientôt !'}</div>`;
@@ -214,7 +218,14 @@
 
   ['#f-q', '#f-marque', '#f-prix', '#f-carburant', '#f-ville', '#f-tri'].forEach(s => $(s).addEventListener('input', grille));
   $('#grille').addEventListener('click', e => { const c = e.target.closest('.carte'); if (c) fiche(c.dataset.cle); });
-  $('#filtre-garage').addEventListener('click', e => { if (e.target.id === 'sans-garage') { garageFiltre = ''; grille(); } });
+  $('#filtre-garage').addEventListener('click', e => {
+    if (e.target.id === 'sans-garage') { garageFiltre = ''; grille(); }
+    if (e.target.id === 'sans-recherche') {
+      critere = {};
+      history.replaceState(null, '', location.pathname + (apercu ? '?demo=1' : '') + location.hash);
+      grille();
+    }
+  });
   $('#garages').addEventListener('click', e => { const b = e.target.closest('[data-garage]'); if (b) voirGarage(b.dataset.garage); });
   window.addEventListener('hashchange', suivreAdresse);
   $('#dlg').addEventListener('close', () => { if (location.hash.startsWith('#v/')) history.replaceState(null, '', '#vehicules'); });
