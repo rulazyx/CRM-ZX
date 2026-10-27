@@ -361,17 +361,6 @@ const TABS = {
       if (o.statut === 'Livrée' && !o.dateLivree) db.upsert('commandes', { id: o.id, dateLivree: today() });
       // La liste suit la vente dans son nouveau sous-onglet.
       vueCommande = Object.keys(VUES_COMMANDE).find(k => VUES_COMMANDE[k](o)) || vueCommande;
-      // Offre qui devient commande : on propose tout de suite le rendez-vous de vente.
-      if (avant?.statut === 'Offre' || !avant) {
-        if (o.statut === 'Commande') {
-          apresEnregistrement = () => {
-            switchTab('planning');
-            openForm(null, { type: 'Vente / livraison', clientId: o.clientId, vehiculeId: o.vehiculeId, commandeId: o.id,
-              date: o.dateLivraison || today(), notes: `Vente de la commande ${o.numero}` });
-            toast('Offre acceptée : place le rendez-vous de vente');
-          };
-        }
-      }
     },
     afterDelete: o => {
       const v = db.get('vehicules', o.vehiculeId);

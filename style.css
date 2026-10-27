@@ -76,7 +76,6 @@ header {
   #tabs { display: flex; }
   #bottom-tabs { display: none; }
   body { padding-bottom: 32px; }
-  #btn-menu { display: none; }
 }
 @media (min-width: 900px) and (max-width: 1180px) { #tabs button span { display: none; } }
 
