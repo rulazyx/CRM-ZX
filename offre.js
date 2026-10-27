@@ -84,7 +84,13 @@ const Offre = (() => {
     $('#offre-body').innerHTML = `
       ${selecteur('vehiculeId', 'Véhicule souhaité', stock(), etat.vehiculeId, libelleV, 'Aucun véhicule disponible en stock.')}
       ${selecteur('repriseId', 'Véhicule repris', reprisesDispo(), etat.repriseId, libelleV, 'Aucune reprise en cours.', true)}
-      ${selecteur('clientId', 'Client', db.all('clients').slice().sort((a, b) => norm(clientNom(a)).localeCompare(norm(clientNom(b)))), etat.clientId, clientNom, "Aucun client : ajoute-le d'abord dans Clients.")}
+      ${selecteur('clientId', 'Client', db.all('clients').slice().sort((a, b) => norm(clientNom(a)).localeCompare(norm(clientNom(b)))), etat.clientId, clientNom, 'Aucun client pour l\'instant : crée-le ci-dessous.')}
+      ${etat.clientId ? '' : `<section class="o-bloc o-nouveau-client">
+        <h3 class="section">Nouveau client</h3>
+        <div class="inline"><input data-nc="prenom" placeholder="Prénom" autocomplete="off"><input data-nc="nom" placeholder="Nom" autocomplete="off"></div>
+        <div class="inline"><input data-nc="telephone" type="tel" placeholder="Téléphone" autocomplete="off"><input data-nc="email" type="email" placeholder="Email" autocomplete="off"></div>
+        <button type="button" data-creer-client>${icon('plus', 16)}<span>Créer ce client</span></button>
+      </section>`}
       <section class="o-bloc">
         <h3 class="section">Pack livraison</h3>
         ${r.items.map((k, i) => `<label class="check"><input type="checkbox" data-pack-item="${i}"${k.coche ? ' checked' : ''}><span>${esc(k.nom)}</span><span class="o-montant">${euros(k.montant)}</span></label>`).join('')}
@@ -183,7 +189,15 @@ const Offre = (() => {
         return;
       }
       const vd = e.target.closest('[data-vider]');
-      if (vd) { etat[vd.dataset.vider] = ''; rendre(); }
+      if (vd) { etat[vd.dataset.vider] = ''; rendre(); return; }
+      // Les clients se créent directement depuis l'offre (plus d'onglet Clients chez les revendeurs).
+      if (e.target.closest('[data-creer-client]')) {
+        const c = {};
+        body.querySelectorAll('[data-nc]').forEach(i => { c[i.dataset.nc] = i.value.trim(); });
+        if (!c.nom && !c.prenom && !c.telephone) { toast('Indique au moins un nom ou un téléphone.'); return; }
+        etat.clientId = db.upsert('clients', c).id;
+        rendre();
+      }
     });
     body.addEventListener('change', e => {
       const i = e.target.dataset.packItem;
