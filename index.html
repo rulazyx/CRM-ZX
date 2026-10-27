@@ -20,20 +20,15 @@
   <div class="splash-route"><span></span></div>
 </div>
 <div id="auth" hidden>
-  <!-- Accueil d'ocaz.re : chacun choisit son profil. Revendeur et apporteur se connectent au même endroit,
-       l'appli ouvre ensuite le bon espace selon le compte. -->
+  <!-- Accueil d'ocaz.re : les particuliers vont aux véhicules ; les pros passent par « Version pro » (une seule connexion,
+       l'appli reconnaît au compte s'il s'agit d'un revendeur ou d'un apporteur d'affaires). -->
   <section id="accueil" class="accueil">
+    <button type="button" class="accueil-pro" id="accueil-pro">VERSION PRO</button>
     <img src="logo.svg" alt="" width="72" height="72">
     <h1><span class="brand-name">OCAZ</span></h1>
     <p class="accueil-slogan">Roulez local, achetez pro</p>
     <a class="accueil-particulier" href="reseau">
       <span class="accueil-ico" data-ico="vehicules"></span><b>Particulier</b><small>Je cherche une voiture</small></a>
-    <button type="button" class="accueil-pro" id="accueil-pro">Espace pro</button>
-    <div class="accueil-pros" id="accueil-pros" hidden>
-      <button type="button" class="accueil-profil" data-profil="revendeur">Revendeur</button>
-      <button type="button" class="accueil-profil" data-profil="apporteur">Apporteur d'affaires</button>
-      <button type="button" class="lien" id="accueil-pro-retour">← Retour</button>
-    </div>
   </section>
   <form id="auth-form" class="auth-carte" novalidate hidden>
     <button type="button" id="auth-retour" class="lien auth-retour">← Retour</button>
@@ -47,7 +42,7 @@
     <p id="auth-erreur" class="auth-erreur" role="alert" hidden></p>
     <button type="submit" id="auth-ok" class="primary">Se connecter</button>
     <p class="hint auth-aide" id="auth-aide">Mot de passe oublié ? Demande à ton administrateur de le réinitialiser.</p>
-    <p class="hint auth-aide" id="auth-devenir" hidden>Pas encore apporteur ? <a href="apporteur?inscription">Devenir apporteur (gratuit)</a><br>Démo : identifiant <b>apporteur</b>, mot de passe <b>test</b>.</p>
+    <p class="hint auth-aide" id="auth-devenir">Pas encore apporteur ? <a href="apporteur?inscription">Devenir apporteur (gratuit)</a><br>Démo : <b>test</b> / <b>test</b> (garage) ou <b>apporteur</b> / <b>test</b>.</p>
     <button type="button" id="auth-sortir" class="lien" hidden>Se déconnecter</button>
     <details id="auth-config" hidden><summary>Réglages techniques</summary>
       <div class="stack" style="margin-top:8px">

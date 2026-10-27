@@ -403,13 +403,12 @@ button.lien { background: none; border: 0; padding: 4px 0; color: var(--primary)
 .accueil-particulier .accueil-ico { width: 56px; height: 56px; border-radius: 16px; display: grid; place-items: center; background: rgba(0, 0, 0, .1); margin-bottom: 4px; }
 .accueil-particulier b { font-size: 20px; }
 .accueil-particulier small { font-size: 15px; color: #3b2a05; }
-.accueil-pro, .accueil-profil { all: unset; box-sizing: border-box; cursor: pointer; width: 100%; padding: 14px 18px; border-radius: 16px; text-align: center;
-  font-weight: 700; font-size: 16px; color: #fff; background: rgba(255, 255, 255, .06); border: 1px solid rgba(255, 255, 255, .18); transition: background .15s; }
-.accueil-pro:hover, .accueil-profil:hover, .accueil-pro:focus-visible, .accueil-profil:focus-visible { background: rgba(255, 255, 255, .13); }
-.accueil-pros { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.accueil-pros[hidden] { display: none; }
-.accueil-pros .lien { grid-column: 1 / -1; justify-self: center; color: #c9cbd0; }
-@media (max-width: 420px) { .accueil-pros { grid-template-columns: 1fr; } }
+/* « VERSION PRO » en haut à gauche : connexion unique des revendeurs et apporteurs */
+.accueil-pro { all: unset; box-sizing: border-box; cursor: pointer; position: fixed; z-index: 1;
+  top: calc(16px + env(safe-area-inset-top)); left: calc(16px + env(safe-area-inset-left));
+  padding: 9px 16px; border-radius: 99px; font-weight: 700; font-size: 13px; letter-spacing: .12em; color: #fff;
+  background: rgba(255, 255, 255, .06); border: 1px solid rgba(255, 255, 255, .22); transition: background .15s, border-color .15s; }
+.accueil-pro:hover, .accueil-pro:focus-visible { background: rgba(255, 255, 255, .13); border-color: var(--accent); }
 /* Bascule entre l'espace garage et l'espace apporteur (compte qui a les deux) */
 .espace-bascule { flex: none; padding: 6px 12px; border-radius: 99px; border: 1px solid rgba(255, 255, 255, .3); color: #fff; text-decoration: none;
   font-size: 13px; font-weight: 600; white-space: nowrap; }
@@ -536,6 +535,7 @@ body[data-onglet="parametres"] #btn-menu { background: rgba(255,255,255,.16); }
 .viz-vide { padding: 28px 8px; text-align: center; }
 .auth-rester { padding: 0; font-size: 14px; align-items: center; }
 .auth-aide { text-align: center; margin: 0; font-size: 13px; }
+.auth-carte a, .hint a { color: var(--text); font-weight: 600; }
 #auth-config summary { font-size: 13px; }
 .membre small { display: block; color: var(--orange); font-size: 11.5px; }
 .membre .chip { padding: 4px 9px; font-size: 12.5px; }
