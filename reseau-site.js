@@ -196,6 +196,11 @@
     if (apercu) {
       const r = await client.rpc('crm_reseau_demo');
       demo = (r.data || []).map(x => ({ ...x, demo: true }));
+      const nb = demo.reduce((n, g) => n + (g.vehicules || []).length, 0);
+      // Si rien ne s'affiche, le bandeau dit pourquoi.
+      if (r.error) $('#apercu').textContent = "Aperçu démo indisponible : la base n'est pas à jour, relance le script supabase.sql en entier.";
+      else if (!demo.length) $('#apercu').textContent = "Le garage démo n'a encore rien publié sur le réseau : connecte-toi une fois à l'appli avec le compte test / test, puis recharge cette page.";
+      else if (!nb) $('#apercu').textContent = "Le garage démo est bien sur le réseau, mais aucun de ses véhicules en stock n'est partagé : connecte-toi avec test / test et coche « Partager au réseau » sur ses véhicules.";
       $('#apercu').hidden = false;
     }
     garages = [...demo, ...(data || [])].map(r => ({ id: r.entreprise_id || r.id, garage: r.garage || {}, vehicules: (r.vehicules || []).map(v => ({ ...v, demo: !!r.demo })), demo: !!r.demo }));
