@@ -81,7 +81,7 @@ const Sync = (() => {
     const { data, error } = await client.rpc('crm_moi');
     if (error) { console.error(error); setStatus('erreur'); return; }
     // Apporteur d'affaires : il a son propre espace.
-    if (data?.apporteur) { location.replace('apporteur.html'); return; }
+    if (data?.apporteur) { location.replace('apporteur'); return; }
     if (!data || !data.role) { role = null; setStatus('refuse'); return; }
     role = data.role;
     entreprise = { id: data.entreprise_id, nom: data.nom, demo: !!data.demo };

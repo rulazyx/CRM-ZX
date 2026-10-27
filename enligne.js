@@ -1,5 +1,5 @@
 // Vitrine en ligne (côté garage) : l'appli publie une copie des véhicules disponibles, sans prix d'achat ni
-// données clients, sur une page publique (vitrine.html?g=adresse). Les demandes des visiteurs arrivent ici en direct.
+// données clients, sur une page publique (ocaz.re/vitrine?g=adresse). Les demandes des visiteurs arrivent ici en direct.
 const EnLigne = (() => {
   const VISIBLES = ['En stock', 'Réservé'];
   let timer = null;
@@ -10,7 +10,7 @@ const EnLigne = (() => {
   const reglages = () => Param.get().vitrine;
   const slugDe = s => norm(s).replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
   const dossier = () => location.origin + location.pathname.replace(/[^/]*$/, '');
-  const lien = slug => dossier() + 'vitrine.html?g=' + encodeURIComponent(slug);
+  const lien = slug => dossier() + 'vitrine?g=' + encodeURIComponent(slug);
   const codeIntegre = slug => `<script src="${dossier()}integrer.js" data-garage="${slug}" async></script>`;
 
   // Copie publique : seulement ce qu'un acheteur doit voir.

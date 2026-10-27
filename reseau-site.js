@@ -1,4 +1,4 @@
-// Site public du réseau Ocaz (reseau.html) : les véhicules que chaque marchand partage au réseau, et la liste des garages.
+// Site public du réseau Ocaz (ocaz.re/reseau) : les véhicules que chaque marchand partage au réseau, et la liste des garages.
 // Lit la copie publique publiée par l'appli de chaque garage (crm_reseau_lire). Une demande de visiteur part
 // au garage qui vend le véhicule (crm_reseau_demande). Aucune connexion, aucune donnée privée.
 (() => {
@@ -159,7 +159,7 @@
         <div class="actions">${vs.length ? `<button type="button" class="btn primaire" data-garage="${esc(id)}">Voir ses véhicules</button>` : ''}
           ${g.telephone ? `<a class="btn" href="${lienTel(g)}">${ICO.tel} ${esc(g.telephone)}</a>` : ''}
           ${wa ? `<a class="btn wa" href="${esc(wa)}" target="_blank" rel="noopener">${ICO.wa}</a>` : ''}
-          ${g.slug_vitrine ? `<a class="btn" href="vitrine.html?g=${encodeURIComponent(g.slug_vitrine)}">Sa vitrine</a>` : site ? `<a class="btn" href="${esc(site)}" target="_blank" rel="noopener">Son site</a>` : ''}</div>
+          ${g.slug_vitrine ? `<a class="btn" href="vitrine?g=${encodeURIComponent(g.slug_vitrine)}">Sa vitrine</a>` : site ? `<a class="btn" href="${esc(site)}" target="_blank" rel="noopener">Son site</a>` : ''}</div>
       </article>`;
     }).join('') || '<div class="vide">Les premiers garages arrivent bientôt.</div>';
   }

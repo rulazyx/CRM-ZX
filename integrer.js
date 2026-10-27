@@ -7,7 +7,7 @@
   var slug = s.getAttribute('data-garage') || '';
   var base = s.src.replace(/[^/]*$/, '');
   var f = document.createElement('iframe');
-  f.src = base + 'vitrine.html?g=' + encodeURIComponent(slug) + '&integre=1';
+  f.src = base + 'vitrine?g=' + encodeURIComponent(slug) + '&integre=1';
   f.title = 'Nos véhicules d\'occasion';
   f.loading = 'lazy';
   f.setAttribute('allow', 'clipboard-write; web-share');

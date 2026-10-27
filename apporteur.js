@@ -80,7 +80,7 @@
         verrou(true, `Le compte ${user.email} n'est pas un compte apporteur. Compte garage : ouvre l'appli Ocaz.`);
         $('#auth-sortir').hidden = false;
         $('#f-connexion').hidden = true; $('#f-inscription').hidden = true; $('.ap-bascule').hidden = true;
-        $('#auth-texte').insertAdjacentHTML('beforeend', ' <a href="index.html">Ouvrir Ocaz</a>');
+        $('#auth-texte').insertAdjacentHTML('beforeend', ' <a href="./">Ouvrir Ocaz</a>');
         return;
       }
       moi = m;
