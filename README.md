@@ -16,11 +16,11 @@ Ocaz, le logiciel des petits marchands de véhicules d'occasion (La Réunion), u
 
 ## Une seule appli, trois profils
 
-`ocaz.re` s'ouvre sur un accueil : « Particulier, je cherche une voiture » au centre, et « Espace pro » en dessous qui déplie Revendeur / Apporteur d'affaires (`./#pro` l'ouvre déplié).
+`ocaz.re` s'ouvre sur un accueil : « Particulier, je cherche une voiture » au centre, et un bouton « VERSION PRO » en haut à gauche qui ouvre la connexion unique (`./#pro` l'ouvre directement).
 Couleurs : noirs et gris foncés avec le jaune de l'écran de chargement (jaune = couleur d'action en mode sombre) ; le bleu ne reste que dans les graphiques.
 - **Particulier** : les véhicules du réseau (`/reseau`), sans compte.
-- **Revendeur** et **Apporteur** : le même écran de connexion ; l'appli ouvre l'espace qui correspond au compte
-  (garage ou apporteur). Déjà connecté : l'accueil est sauté. `./?espace=revendeur` ou `./?espace=apporteur` présélectionne le profil.
+- **Revendeur** et **Apporteur** : le même écran de connexion (Version pro), sans choix de profil ; l'appli ouvre l'espace qui correspond
+  aux identifiants (garage ou apporteur). Déjà connecté : l'accueil est sauté.
 - Un compte qui est à la fois garage et apporteur passe d'un espace à l'autre avec le bouton ⇄ de l'en-tête.
   Un garage ouvre son espace apporteur depuis Paramètres > Réseau Ocaz (`/apporteur?inscription`, contrat signé, même compte).
 - `/apporteur` reste valable : sans connexion, il renvoie vers la connexion unique ; `/apporteur?inscription` ouvre l'inscription.

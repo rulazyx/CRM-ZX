@@ -938,28 +938,23 @@ function chargement(oui) {
   setTimeout(() => s.classList.add('fin'), reste);
 }
 
-// Profil choisi sur l'accueil (revendeur ou apporteur) : ?espace=… dans l'adresse le présélectionne (liens du site du réseau).
-let profilChoisi = ['revendeur', 'apporteur'].find(p => new URLSearchParams(location.search).get('espace') === p) || null;
-if (profilChoisi) Sync.preferer(profilChoisi === 'apporteur' ? 'apporteur' : 'garage');
-function choisirProfil(p) {
-  profilChoisi = p;
-  // Compte à la fois garage et apporteur : l'espace choisi ici est celui qui s'ouvre après la connexion.
-  if (p) Sync.preferer(p === 'apporteur' ? 'apporteur' : 'garage');
+// « Version pro » : un seul écran de connexion pour les revendeurs et les apporteurs, l'espace s'ouvre selon le compte.
+// ?espace=… (anciens liens) ou #pro dans l'adresse ouvre directement la connexion.
+const espaceLien = new URLSearchParams(location.search).get('espace');
+let connexionPro = !!espaceLien || location.hash === '#pro';
+if (['revendeur', 'apporteur'].includes(espaceLien)) Sync.preferer(espaceLien === 'apporteur' ? 'apporteur' : 'garage');
+function versionPro(oui) {
+  connexionPro = oui;
   afficherAuth(Sync.status, Sync.user, Sync.role);
-  if (p) setTimeout(() => $('#auth-email').focus(), 50);
+  if (oui) setTimeout(() => $('#auth-email').focus(), 50);
 }
 $('.accueil-particulier .accueil-ico').innerHTML = icon('vehicules', 30);
-document.querySelectorAll('.accueil-profil').forEach(b => b.addEventListener('click', () => choisirProfil(b.dataset.profil)));
-// « Espace pro » : un seul bouton, qui déplie le choix Revendeur / Apporteur d'affaires.
-const espacePro = oui => { $('#accueil-pro').hidden = oui; $('#accueil-pros').hidden = !oui; if (oui) $('.accueil-profil').focus(); };
-$('#accueil-pro').addEventListener('click', () => espacePro(true));
-$('#accueil-pro-retour').addEventListener('click', () => espacePro(false));
-if (location.hash === '#pro') espacePro(true);
-$('#auth-retour').addEventListener('click', () => { erreurAuth(''); choisirProfil(null); espacePro(true); });
+$('#accueil-pro').addEventListener('click', () => versionPro(true));
+$('#auth-retour').addEventListener('click', () => { erreurAuth(''); versionPro(false); });
 $('#btn-espace').addEventListener('click', () => Sync.preferer('apporteur'));
 
 // Écran de connexion : l'appli s'ouvre dessus tant qu'on n'est pas connecté.
-// Sans compte connecté, on commence par l'accueil (Particulier, Revendeur, Apporteur d'affaires).
+// Sans compte connecté, on commence par l'accueil (Je cherche une voiture / Version pro).
 function afficherAuth(status, user, role) {
   const gate = $('#auth');
   const config = Sync.configure();
@@ -970,30 +965,27 @@ function afficherAuth(status, user, role) {
   document.body.classList.toggle('verrouille', bloque);
   $('#btn-espace').hidden = !role || !Sync.apporteur;
   if (!bloque) return;
-  const accueil = !user && config && !profilChoisi;
+  const accueil = !user && config && !connexionPro;
   $('#accueil').hidden = !accueil;
   $('#auth-form').hidden = accueil;
   if (accueil) return;
-  const ap = profilChoisi === 'apporteur';
   $('#auth-retour').hidden = !!user || !config;
-  $('#auth-espace').hidden = !profilChoisi || !!user;
-  $('#auth-espace').textContent = ap ? 'Apporteur' : 'Revendeur';
+  $('#auth-espace').hidden = !!user;
+  $('#auth-espace').textContent = 'Version pro';
   const refuse = status === 'refuse';
   $('#auth-texte').textContent = !config ? "L'appli n'est pas encore reliée à sa base : ouvre Réglages techniques ci-dessous."
     : refuse ? `Le compte ${user.email} n'est rattaché à aucun garage. Contacte ton administrateur. (Administrateur : cet email doit figurer dans la liste des super-admins, voir le guide de mise en route.)`
     : status === 'erreur' && user ? 'Connexion à la base impossible. Vérifie le réseau, ou que le script supabase.sql a bien été lancé.'
     : nouveau ? 'Première connexion : choisis ton mot de passe (8 caractères minimum).'
-    : ap ? "Connecte-toi à ton espace apporteur d'affaires."
-    : profilChoisi ? 'Connecte-toi à ton espace garage.'
-    : 'Connecte-toi pour accéder à Ocaz.';
+    : 'Revendeur ou apporteur d\'affaires : connecte-toi, Ocaz ouvre ton espace.';
   $('#auth-ok').textContent = nouveau ? 'Enregistrer mon mot de passe' : 'Se connecter';
   $('#auth-champ-email').hidden = refuse || nouveau || !config;
   $('#auth-champ-mdp').hidden = refuse || !config;
   $('#auth-champ-mdp2').hidden = !nouveau;
   $('#auth-champ-rester').hidden = refuse || nouveau || !config;
   $('#auth-ok').hidden = refuse || !config;
-  $('#auth-aide').hidden = refuse || nouveau || !config || ap;
-  $('#auth-devenir').hidden = refuse || nouveau || !config || !ap;
+  $('#auth-aide').hidden = refuse || nouveau || !config;
+  $('#auth-devenir').hidden = refuse || nouveau || !config;
   $('#auth-mdp').autocomplete = nouveau ? 'new-password' : 'current-password';
   $('#auth-mdp').placeholder = nouveau ? 'Nouveau mot de passe' : '';
   $('#auth-sortir').hidden = !user;
