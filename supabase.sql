@@ -104,7 +104,11 @@ begin
       values (coalesce(nullif(trim(auth.jwt() -> 'user_metadata' ->> 'entreprise'), ''), 'Mon garage')) returning id into eid;
     insert into public.crm_membres (email, entreprise_id, role) values (e, eid, 'admin') returning * into m;
   end if;
-  if m.email is null then return null; end if;
+  if m.email is null then
+    -- Apporteur d'affaires du réseau : il utilise son propre espace (apporteur.html).
+    if exists (select 1 from public.crm_apporteurs where email = e) then return json_build_object('apporteur', true); end if;
+    return null;
+  end if;
   return json_build_object('role', m.role, 'entreprise_id', m.entreprise_id, 'doit_changer_mdp', m.doit_changer_mdp,
     'superadmin', public.crm_est_superadmin(),
     'nom', (select nom from public.crm_entreprises where id = m.entreprise_id),
@@ -315,3 +319,344 @@ grant execute on function public.crm_vitrine_publier(text, boolean, jsonb, text[
 do $$ begin
   alter publication supabase_realtime add table public.crm_demandes;
 exception when duplicate_object then null; end $$;
+
+-- =====================================================================================================
+-- Réseau Ocaz : véhicules partagés par les garages, apporteurs d'affaires (accès gratuit) et leads.
+-- Chaque garage choisit les véhicules qu'il partage et le montant de la commission. Un apporteur inscrit
+-- (statut d'apporteur d'affaires, contrat signé en ligne) transmet un client intéressé : le lead arrive
+-- dans l'appli du garage, qui verse lui-même la commission à l'apporteur après la vente. Ocaz calcule
+-- la commission et prépare la facture de l'apporteur, aucun argent ne passe par Ocaz.
+-- =====================================================================================================
+
+-- Copie publiée par l'appli de chaque garage : infos publiques du garage et véhicules partagés (avec commission).
+create table if not exists public.crm_reseau (
+  entreprise_id uuid primary key references public.crm_entreprises (id) on delete cascade,
+  actif boolean not null default false,
+  data jsonb not null default '{}'::jsonb,
+  photos text[] not null default '{}',
+  maj_le timestamptz not null default now()
+);
+alter table public.crm_reseau enable row level security;
+drop policy if exists "Réseau : équipe" on public.crm_reseau;
+create policy "Réseau : équipe" on public.crm_reseau for select to authenticated
+  using (entreprise_id = public.crm_entreprise());
+
+create or replace function public.crm_reseau_publier(p_actif boolean, p_data jsonb, p_photos text[]) returns boolean
+language plpgsql security definer set search_path = public as $$
+declare eid uuid := public.crm_entreprise();
+begin
+  if eid is null then raise exception 'Compte non rattaché à un garage'; end if;
+  insert into public.crm_reseau (entreprise_id, actif, data, photos, maj_le)
+  values (eid, p_actif, coalesce(p_data, '{}'::jsonb),
+    (select coalesce(array_agg(x), '{}') from unnest(coalesce(p_photos, '{}')) x where x like eid::text || '/%'), now())
+  on conflict (entreprise_id) do update set actif = excluded.actif, data = excluded.data, photos = excluded.photos, maj_le = now();
+  return true;
+end $$;
+revoke execute on function public.crm_reseau_publier(boolean, jsonb, text[]) from public, anon;
+grant execute on function public.crm_reseau_publier(boolean, jsonb, text[]) to authenticated;
+
+-- Site public du réseau : tous les garages actifs (sauf la démo), sans la commission.
+create or replace function public.crm_reseau_lire() returns json
+language sql stable security definer set search_path = public as $$
+  select coalesce(json_agg(json_build_object('entreprise_id', r.entreprise_id, 'garage', r.data -> 'garage',
+      'vehicules', (select coalesce(jsonb_agg(v - 'commission' - 'commissionTexte'), '[]'::jsonb) from jsonb_array_elements(coalesce(r.data -> 'vehicules', '[]'::jsonb)) v),
+      'maj_le', r.maj_le) order by r.maj_le desc), '[]'::json)
+  from public.crm_reseau r join public.crm_entreprises e on e.id = r.entreprise_id
+  where r.actif and not e.demo;
+$$;
+grant execute on function public.crm_reseau_lire() to anon, authenticated;
+
+-- Photos : celles des véhicules partagés au réseau sont lisibles comme celles de la vitrine.
+create or replace function public.crm_photo_publique(p_name text) returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.crm_vitrine where actif and p_name = any (photos))
+      or exists (select 1 from public.crm_reseau where actif and p_name = any (photos));
+$$;
+grant execute on function public.crm_photo_publique(text) to anon, authenticated;
+drop policy if exists "Photos : vitrine" on storage.objects;
+create policy "Photos : vitrine" on storage.objects for select to anon, authenticated
+  using (bucket_id = 'photos' and public.crm_photo_publique(name));
+
+-- Apporteurs d'affaires : inscription libre et gratuite, avec le contrat signé en ligne.
+create table if not exists public.crm_apporteurs (
+  email text primary key,
+  statut text not null default 'actif' check (statut in ('actif', 'suspendu')),
+  prenom text not null default '',
+  nom text not null default '',
+  telephone text not null default '',
+  adresse text not null default '',
+  code_postal text not null default '',
+  ville text not null default '',
+  forme text not null default 'micro' check (forme in ('micro', 'societe', 'en_cours')),
+  raison_sociale text not null default '',
+  siret text not null default '',
+  tva text not null default '',
+  iban text not null default '',
+  bic text not null default '',
+  titulaire text not null default '',
+  contrat_version text not null default '',
+  contrat_signe_le timestamptz,
+  signature text not null default '',
+  factures_seq integer not null default 0,
+  demo boolean not null default false,
+  cree_le timestamptz not null default now()
+);
+alter table public.crm_apporteurs enable row level security;
+drop policy if exists "Apporteur : lecture" on public.crm_apporteurs;
+create policy "Apporteur : lecture" on public.crm_apporteurs for select to authenticated
+  using (email = lower(auth.jwt() ->> 'email'));
+
+create or replace function public.crm_est_apporteur() returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.crm_apporteurs where email = lower(auth.jwt() ->> 'email') and statut = 'actif');
+$$;
+
+-- Champs que l'apporteur peut remplir lui-même (inscription et Paramètres).
+create or replace function public.crm__apporteur_champs(p jsonb) returns jsonb
+language sql immutable as $$
+  select jsonb_strip_nulls(jsonb_build_object(
+    'prenom', left(trim(p ->> 'prenom'), 60), 'nom', left(trim(p ->> 'nom'), 60), 'telephone', left(trim(p ->> 'telephone'), 30),
+    'adresse', left(trim(p ->> 'adresse'), 160), 'code_postal', left(trim(p ->> 'code_postal'), 10), 'ville', left(trim(p ->> 'ville'), 60),
+    'forme', case when p ->> 'forme' in ('micro', 'societe', 'en_cours') then p ->> 'forme' end,
+    'raison_sociale', left(trim(p ->> 'raison_sociale'), 120), 'siret', left(regexp_replace(coalesce(p ->> 'siret', ''), '\s', '', 'g'), 14),
+    'tva', left(trim(p ->> 'tva'), 20), 'iban', left(upper(regexp_replace(coalesce(p ->> 'iban', ''), '\s', '', 'g')), 34),
+    'bic', left(upper(trim(p ->> 'bic')), 11), 'titulaire', left(trim(p ->> 'titulaire'), 80)));
+$$;
+
+-- Inscription d'un apporteur (sans être connecté) : crée son compte de connexion et sa fiche.
+create or replace function public.crm_apporteur_inscription(p_email text, p_mdp text, p_infos jsonb, p_contrat text, p_signature text)
+returns boolean language plpgsql security definer set search_path = public, auth, extensions as $$
+declare e text := lower(trim(p_email)); c jsonb := public.crm__apporteur_champs(coalesce(p_infos, '{}'::jsonb));
+begin
+  if e !~ '^[^@\s]+@[^@\s]+\.[^@\s]+$' or e like '%@demo.crmzx.re' then raise exception 'Email invalide'; end if;
+  if length(coalesce(p_mdp, '')) < 8 then raise exception 'Le mot de passe doit faire au moins 8 caractères.'; end if;
+  if coalesce(c ->> 'nom', '') = '' or coalesce(c ->> 'prenom', '') = '' or coalesce(c ->> 'telephone', '') = '' then raise exception 'Nom, prénom et téléphone sont obligatoires.'; end if;
+  if c ->> 'forme' in ('micro', 'societe') and coalesce(c ->> 'siret', '') !~ '^\d{14}$' then raise exception 'Le SIRET doit faire 14 chiffres.'; end if;
+  if coalesce(trim(p_signature), '') = '' or coalesce(p_contrat, '') = '' then raise exception 'Signe le contrat en tapant ton nom complet.'; end if;
+  if exists (select 1 from auth.users where lower(email) = e) then raise exception 'Cet email a déjà un compte : connecte-toi.'; end if;
+  -- Garde-fou contre les inscriptions en rafale.
+  if (select count(*) from public.crm_apporteurs where cree_le > now() - interval '1 hour') >= 30 then
+    raise exception 'Trop d''inscriptions en ce moment, réessaie dans une heure.';
+  end if;
+  perform public.crm__utilisateur(e, p_mdp);
+  insert into public.crm_apporteurs (email, prenom, nom, telephone, adresse, code_postal, ville, forme, raison_sociale, siret, tva,
+    iban, bic, titulaire, contrat_version, contrat_signe_le, signature)
+  values (e, c ->> 'prenom', c ->> 'nom', c ->> 'telephone', coalesce(c ->> 'adresse', ''), coalesce(c ->> 'code_postal', ''), coalesce(c ->> 'ville', ''),
+    coalesce(c ->> 'forme', 'micro'), coalesce(c ->> 'raison_sociale', ''), coalesce(c ->> 'siret', ''), coalesce(c ->> 'tva', ''),
+    coalesce(c ->> 'iban', ''), coalesce(c ->> 'bic', ''), coalesce(c ->> 'titulaire', ''), left(p_contrat, 20), now(), left(trim(p_signature), 120));
+  return true;
+end $$;
+grant execute on function public.crm_apporteur_inscription(text, text, jsonb, text, text) to anon, authenticated;
+
+-- Fiche de l'apporteur connecté (null s'il n'en est pas un).
+create or replace function public.crm_apporteur_moi() returns json
+language sql stable security definer set search_path = public as $$
+  select row_to_json(a) from public.crm_apporteurs a where email = lower(auth.jwt() ->> 'email');
+$$;
+create or replace function public.crm_apporteur_maj(p_infos jsonb) returns json
+language plpgsql security definer set search_path = public as $$
+declare e text := lower(auth.jwt() ->> 'email'); c jsonb := public.crm__apporteur_champs(coalesce(p_infos, '{}'::jsonb));
+begin
+  if not exists (select 1 from public.crm_apporteurs where email = e) then raise exception 'Compte apporteur introuvable'; end if;
+  if c ->> 'forme' in ('micro', 'societe') and coalesce(c ->> 'siret', '') !~ '^\d{14}$' then raise exception 'Le SIRET doit faire 14 chiffres.'; end if;
+  update public.crm_apporteurs set
+    prenom = coalesce(nullif(c ->> 'prenom', ''), prenom), nom = coalesce(nullif(c ->> 'nom', ''), nom),
+    telephone = coalesce(nullif(c ->> 'telephone', ''), telephone), adresse = coalesce(c ->> 'adresse', adresse),
+    code_postal = coalesce(c ->> 'code_postal', code_postal), ville = coalesce(c ->> 'ville', ville), forme = coalesce(c ->> 'forme', forme),
+    raison_sociale = coalesce(c ->> 'raison_sociale', raison_sociale), siret = coalesce(c ->> 'siret', siret), tva = coalesce(c ->> 'tva', tva),
+    iban = coalesce(c ->> 'iban', iban), bic = coalesce(c ->> 'bic', bic), titulaire = coalesce(c ->> 'titulaire', titulaire)
+  where email = e;
+  return public.crm_apporteur_moi();
+end $$;
+
+-- Véhicules du réseau vus par un apporteur actif, avec la commission de chaque garage.
+-- Un compte apporteur de démo ne voit que les garages de démo (et inversement).
+create or replace function public.crm_reseau_apporteur() returns json
+language plpgsql stable security definer set search_path = public as $$
+declare d boolean;
+begin
+  if not public.crm_est_apporteur() then raise exception 'Réservé aux apporteurs du réseau'; end if;
+  select demo into d from public.crm_apporteurs where email = lower(auth.jwt() ->> 'email');
+  return coalesce((select json_agg(json_build_object('entreprise_id', r.entreprise_id, 'garage', r.data -> 'garage', 'vehicules', r.data -> 'vehicules',
+      'maj_le', r.maj_le) order by r.maj_le desc)
+    from public.crm_reseau r join public.crm_entreprises e on e.id = r.entreprise_id
+    where r.actif and e.demo = d), '[]'::json);
+end $$;
+
+-- Leads : un client intéressé par un véhicule du réseau, transmis par un apporteur au garage.
+-- Statuts : nouveau (envoyé), en_cours (pris en charge par le garage), vendu (terminé), perdu (clos sans vente).
+create table if not exists public.crm_leads (
+  id uuid primary key default gen_random_uuid(),
+  numero bigint generated always as identity,
+  cree_le timestamptz not null default now(),
+  apporteur_email text not null references public.crm_apporteurs (email) on delete cascade,
+  entreprise_id uuid not null references public.crm_entreprises (id) on delete cascade,
+  vehicule_id text not null,
+  vehicule text not null default '',
+  vehicule_prix numeric,
+  commission numeric not null default 0,
+  commission_texte text not null default '',
+  client_prenom text not null default '',
+  client_nom text not null,
+  client_tel text not null,
+  client_email text not null default '',
+  message text not null default '',
+  reprise jsonb,
+  consentement boolean not null,
+  consentement_le timestamptz not null default now(),
+  statut text not null default 'nouveau' check (statut in ('nouveau', 'en_cours', 'vendu', 'perdu')),
+  statut_le timestamptz not null default now(),
+  pris_le timestamptz,
+  motif text not null default '',
+  note_garage text not null default '',
+  client_id text not null default '',
+  prix_vente numeric,
+  commission_finale numeric,
+  vendu_le date,
+  facture_numero text not null default '',
+  payee boolean not null default false,
+  payee_le date
+);
+alter table public.crm_leads enable row level security;
+drop policy if exists "Leads : apporteur et garage" on public.crm_leads;
+create policy "Leads : apporteur et garage" on public.crm_leads for select to authenticated
+  using (apporteur_email = lower(auth.jwt() ->> 'email') or entreprise_id = public.crm_entreprise());
+do $$ begin
+  alter publication supabase_realtime add table public.crm_leads;
+exception when duplicate_object then null; end $$;
+
+-- L'apporteur crée un lead : véhicule, prix et commission sont repris de la copie publiée par le garage.
+create or replace function public.crm_lead_creer(p_garage uuid, p_vid text, p_prenom text, p_nom text, p_tel text, p_email text,
+  p_message text, p_reprise jsonb, p_consentement boolean) returns json
+language plpgsql security definer set search_path = public as $$
+declare
+  e text := lower(auth.jwt() ->> 'email');
+  a public.crm_apporteurs%rowtype;
+  v jsonb;
+  l public.crm_leads%rowtype;
+begin
+  select * into a from public.crm_apporteurs where email = e;
+  if a.email is null or a.statut <> 'actif' then raise exception 'Ton compte apporteur n''est pas actif.'; end if;
+  if not coalesce(p_consentement, false) then raise exception 'Le client doit accepter que tu transmettes ses coordonnées.'; end if;
+  if length(trim(coalesce(p_nom, ''))) not between 1 and 80 or length(regexp_replace(coalesce(p_tel, ''), '\D', '', 'g')) not between 6 and 15
+     or length(coalesce(p_email, '')) > 120 or length(coalesce(p_message, '')) > 1000 then
+    raise exception 'Nom et téléphone du client obligatoires.';
+  end if;
+  select x into v from public.crm_reseau r join public.crm_entreprises en on en.id = r.entreprise_id,
+    jsonb_array_elements(coalesce(r.data -> 'vehicules', '[]'::jsonb)) x
+    where r.entreprise_id = p_garage and r.actif and en.demo = a.demo and x ->> 'id' = p_vid;
+  if v is null then raise exception 'Ce véhicule n''est plus disponible dans le réseau.'; end if;
+  if coalesce((v ->> 'reserve')::boolean, false) then raise exception 'Ce véhicule est déjà réservé.'; end if;
+  if exists (select 1 from public.crm_leads where entreprise_id = p_garage and vehicule_id = p_vid and statut in ('nouveau', 'en_cours')
+             and regexp_replace(client_tel, '\D', '', 'g') = regexp_replace(p_tel, '\D', '', 'g')) then
+    raise exception 'Ce client a déjà un lead en cours pour ce véhicule.';
+  end if;
+  if (select count(*) from public.crm_leads where apporteur_email = e and cree_le > now() - interval '1 day') >= 30 then
+    raise exception 'Limite de 30 leads par jour atteinte.';
+  end if;
+  insert into public.crm_leads (apporteur_email, entreprise_id, vehicule_id, vehicule, vehicule_prix, commission, commission_texte,
+    client_prenom, client_nom, client_tel, client_email, message, reprise, consentement)
+  values (e, p_garage, p_vid, left(concat_ws(' ', v ->> 'marque', v ->> 'modele', v ->> 'finition'), 160), nullif(v ->> 'prix', '')::numeric,
+    coalesce(nullif(v ->> 'commission', '')::numeric, 0), coalesce(v ->> 'commissionTexte', ''),
+    left(trim(coalesce(p_prenom, '')), 60), left(trim(p_nom), 80), left(trim(p_tel), 30), left(trim(coalesce(p_email, '')), 120),
+    left(trim(coalesce(p_message, '')), 1000), case when p_reprise is null or p_reprise = '{}'::jsonb then null else p_reprise end, true)
+  returning * into l;
+  return row_to_json(l);
+end $$;
+
+-- Leads de l'apporteur connecté, avec les coordonnées du garage.
+create or replace function public.crm_leads_apporteur() returns json
+language sql stable security definer set search_path = public as $$
+  select coalesce(json_agg(json_build_object('lead', l, 'garage', coalesce(r.data -> 'garage', jsonb_build_object('nom', en.nom)),
+      'garage_facture', en.data -> 'parametres' -> 'garage') order by l.cree_le desc), '[]'::json)
+  from public.crm_leads l join public.crm_entreprises en on en.id = l.entreprise_id
+  left join public.crm_reseau r on r.entreprise_id = l.entreprise_id
+  where l.apporteur_email = lower(auth.jwt() ->> 'email');
+$$;
+
+-- Leads reçus par le garage connecté, avec la fiche de l'apporteur (RIB seulement quand la vente est faite).
+create or replace function public.crm_leads_garage() returns json
+language sql stable security definer set search_path = public as $$
+  select coalesce(json_agg(json_build_object('lead', l, 'apporteur', json_build_object(
+      'prenom', a.prenom, 'nom', a.nom, 'telephone', a.telephone, 'email', a.email, 'forme', a.forme, 'raison_sociale', a.raison_sociale,
+      'siret', a.siret, 'tva', a.tva, 'adresse', a.adresse, 'code_postal', a.code_postal, 'ville', a.ville,
+      'iban', case when l.statut = 'vendu' then a.iban else '' end, 'bic', case when l.statut = 'vendu' then a.bic else '' end,
+      'titulaire', case when l.statut = 'vendu' then a.titulaire else '' end)) order by l.cree_le desc), '[]'::json)
+  from public.crm_leads l join public.crm_apporteurs a on a.email = l.apporteur_email
+  where l.entreprise_id = public.crm_entreprise();
+$$;
+
+-- Le garage fait avancer un lead. Vente : commission finale (celle annoncée par défaut) et numéro de facture de l'apporteur.
+create or replace function public.crm_lead_statut(p_id uuid, p_statut text, p_motif text default '', p_prix numeric default null,
+  p_commission numeric default null, p_client_id text default null, p_note text default null) returns json
+language plpgsql security definer set search_path = public as $$
+declare l public.crm_leads%rowtype; n integer;
+begin
+  select * into l from public.crm_leads where id = p_id and entreprise_id = public.crm_entreprise() for update;
+  if l.id is null then raise exception 'Lead introuvable'; end if;
+  if p_statut not in ('nouveau', 'en_cours', 'vendu', 'perdu') then raise exception 'Statut invalide'; end if;
+  if l.payee and p_statut <> 'vendu' then raise exception 'La commission est déjà versée : ce lead ne peut plus changer.'; end if;
+  if p_statut = 'vendu' and l.facture_numero = '' then
+    update public.crm_apporteurs set factures_seq = factures_seq + 1 where email = l.apporteur_email returning factures_seq into n;
+    l.facture_numero := 'COM-' || to_char(now(), 'YYYY') || '-' || lpad(n::text, 4, '0');
+  end if;
+  update public.crm_leads set
+    statut = p_statut, statut_le = case when statut <> p_statut then now() else statut_le end,
+    pris_le = case when p_statut <> 'nouveau' then coalesce(pris_le, now()) else pris_le end,
+    motif = case when p_statut = 'perdu' then left(coalesce(p_motif, ''), 200) else '' end,
+    prix_vente = case when p_statut = 'vendu' then coalesce(p_prix, prix_vente, vehicule_prix) else null end,
+    commission_finale = case when p_statut = 'vendu' then greatest(0, coalesce(p_commission, commission_finale, commission)) else null end,
+    vendu_le = case when p_statut = 'vendu' then coalesce(vendu_le, current_date) else null end,
+    facture_numero = l.facture_numero,
+    client_id = coalesce(p_client_id, client_id), note_garage = coalesce(left(p_note, 500), note_garage)
+  where id = p_id returning * into l;
+  return row_to_json(l);
+end $$;
+
+-- Le garage indique qu'il a versé la commission à l'apporteur.
+create or replace function public.crm_lead_payee(p_id uuid, p_payee boolean) returns json
+language plpgsql security definer set search_path = public as $$
+declare l public.crm_leads%rowtype;
+begin
+  update public.crm_leads set payee = p_payee, payee_le = case when p_payee then current_date else null end
+    where id = p_id and entreprise_id = public.crm_entreprise() and statut = 'vendu' returning * into l;
+  if l.id is null then raise exception 'Lead introuvable ou pas encore vendu'; end if;
+  return row_to_json(l);
+end $$;
+
+-- Super-admin : liste des apporteurs, suspension ou réactivation.
+create or replace function public.crm_apporteurs_liste() returns json
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if not public.crm_est_superadmin() then raise exception 'Réservé au super-admin'; end if;
+  return coalesce((select json_agg(json_build_object('email', a.email, 'statut', a.statut, 'prenom', a.prenom, 'nom', a.nom, 'telephone', a.telephone,
+      'ville', a.ville, 'forme', a.forme, 'siret', a.siret, 'cree_le', a.cree_le, 'demo', a.demo,
+      'leads', (select count(*) from public.crm_leads l where l.apporteur_email = a.email),
+      'ventes', (select count(*) from public.crm_leads l where l.apporteur_email = a.email and l.statut = 'vendu')) order by a.cree_le desc)
+    from public.crm_apporteurs a), '[]'::json);
+end $$;
+create or replace function public.crm_apporteur_statut(p_email text, p_statut text) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not public.crm_est_superadmin() then raise exception 'Réservé au super-admin'; end if;
+  if p_statut not in ('actif', 'suspendu') then raise exception 'Statut invalide'; end if;
+  update public.crm_apporteurs set statut = p_statut where email = lower(trim(p_email));
+end $$;
+
+revoke execute on function public.crm_apporteur_moi(), public.crm_apporteur_maj(jsonb), public.crm_reseau_apporteur(),
+  public.crm_lead_creer(uuid, text, text, text, text, text, text, jsonb, boolean), public.crm_leads_apporteur(), public.crm_leads_garage(),
+  public.crm_lead_statut(uuid, text, text, numeric, numeric, text, text), public.crm_lead_payee(uuid, boolean),
+  public.crm_apporteurs_liste(), public.crm_apporteur_statut(text, text) from public, anon;
+grant execute on function public.crm_apporteur_moi(), public.crm_apporteur_maj(jsonb), public.crm_reseau_apporteur(),
+  public.crm_lead_creer(uuid, text, text, text, text, text, text, jsonb, boolean), public.crm_leads_apporteur(), public.crm_leads_garage(),
+  public.crm_lead_statut(uuid, text, text, numeric, numeric, text, text), public.crm_lead_payee(uuid, boolean),
+  public.crm_apporteurs_liste(), public.crm_apporteur_statut(text, text) to authenticated;
+
+-- Apporteur de démo : identifiant « apporteur », mot de passe « test ». Il ne voit que le garage de démo.
+do $$ begin
+  perform public.crm__utilisateur('apporteur@demo.crmzx.re', 'test');
+  insert into public.crm_apporteurs (email, prenom, nom, telephone, ville, forme, siret, iban, bic, titulaire, contrat_version, contrat_signe_le, signature, demo)
+  values ('apporteur@demo.crmzx.re', 'Alex', 'Démo', '0692 00 00 00', 'Saint-Denis', 'micro', '12345678900011', 'FR7630004000031234567890143', 'BNPAFRPPXXX',
+    'Alex Démo', '2026-10', now(), 'Alex Démo', true)
+  on conflict (email) do nothing;
+end $$;
