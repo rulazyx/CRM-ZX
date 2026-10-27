@@ -59,7 +59,7 @@ const EnLigne = (() => {
     canal = Sync.client.channel('demandes')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'crm_demandes', filter: 'entreprise_id=eq.' + Sync.entreprise.id }, p => {
         const d = p.new;
-        toast(`📩 Nouvelle demande de ${d.nom}${d.vehicule ? ' pour ' + d.vehicule : ''}`);
+        toast(`📩 Nouvelle demande${d.origine === 'reseau' ? ' (site du réseau)' : ''} de ${d.nom}${d.vehicule ? ' pour ' + d.vehicule : ''}`);
         try {
           if ('Notification' in window && Notification.permission === 'granted') {
             new Notification('Nouvelle demande · Ocaz', { body: `${d.nom}${d.vehicule ? ' · ' + d.vehicule : ''}\n${d.message || d.telephone || ''}`, icon: 'icon-512.png', tag: d.id });
@@ -82,7 +82,7 @@ const EnLigne = (() => {
     const [prenom, ...reste] = d.nom.trim().split(/\s+/);
     const existant = db.all('clients').find(c => (d.telephone && norm(c.telephone).replace(/\D/g, '') === d.telephone.replace(/\D/g, '')) || (d.email && norm(c.email) === norm(d.email)));
     const v = d.vehicule_id ? db.get('vehicules', d.vehicule_id) : null;
-    const note = `Demande vitrine du ${dateFr(d.cree_le)}${d.vehicule ? ' (' + d.vehicule + ')' : ''} : ${d.message || '—'}`;
+    const note = `Demande ${d.origine === 'reseau' ? 'du site du réseau' : 'vitrine'} du ${dateFr(d.cree_le)}${d.vehicule ? ' (' + d.vehicule + ')' : ''} : ${d.message || '—'}`;
     const c = existant
       ? db.upsert('clients', { id: existant.id, interets: [...new Set([...(existant.interets || []), ...(v ? [v.id] : [])])], notes: [existant.notes, note].filter(Boolean).join('\n') })
       : db.upsert('clients', { prenom: reste.length ? prenom : '', nom: reste.length ? reste.join(' ') : prenom, telephone: d.telephone, email: d.email,
@@ -97,10 +97,10 @@ const EnLigne = (() => {
     const r = reglages();
     if (!r.slug && !demandes.length) return '';
     return `<section class="panneau demandes">
-      <div class="p-tete"><h3>Demandes de la vitrine <span class="compte">${demandes.length}</span></h3>
+      <div class="p-tete"><h3>Demandes en ligne <span class="compte">${demandes.length}</span></h3>
         ${r.slug ? `<a class="hint" href="${esc(lien(r.slug))}" target="_blank" rel="noopener">Voir ma vitrine ↗</a>` : ''}</div>
       ${demandes.length ? demandes.map(d => `<div class="demande">
-        <div><strong>${esc(d.nom)}</strong> <span class="hint">${new Date(d.cree_le).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+        <div><strong>${esc(d.nom)}</strong> ${d.origine === 'reseau' ? '<span class="badge b-blue">Site du réseau</span> ' : ''}<span class="hint">${new Date(d.cree_le).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
           ${d.vehicule ? `<span class="sub">🚗 ${esc(d.vehicule)}</span>` : ''}
           ${d.message ? `<span class="sub">« ${esc(d.message)} »</span>` : ''}
           <span class="sub">${esc([d.telephone, d.email].filter(Boolean).join(' · '))}</span></div>
