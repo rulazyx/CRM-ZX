@@ -6,6 +6,12 @@
 <title>Ocaz | Roulez local, achetez pro</title>
 <meta name="description" content="Toutes les voitures d'occasion des marchands du réseau Ocaz à La Réunion : photos, prix, et contact direct avec le garage.">
 <meta name="theme-color" content="#0d0f12">
+<link rel="canonical" href="https://ocaz.re/reseau">
+<meta property="og:title" content="Ocaz | Roulez local, achetez pro">
+<meta property="og:description" content="Les voitures d'occasion des garages professionnels de La Réunion, en contact direct avec le vendeur.">
+<meta property="og:url" content="https://ocaz.re/reseau">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://ocaz.re/icon-512.png">
 <link rel="icon" href="logo.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -56,6 +62,13 @@ nav.pages a.actif { background: var(--bg); color: var(--text); }
 .rejoindre .btn { margin-left: auto; background: var(--accent); border-color: var(--accent); color: #111; }
 form .accord { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; color: var(--muted); }
 form .accord input { width: auto; margin-top: 2px; }
+.pros-bas { max-width: 1120px; margin: 10px auto 0; padding: 0 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.pros-bas a { display: grid; gap: 2px; padding: 16px 18px; border-radius: 16px; text-decoration: none; background: var(--card); border: 1px solid var(--line); }
+.pros-bas a:hover { border-color: var(--accent); }
+.pros-bas span { color: var(--muted); font-size: 14px; }
+.pros-bas b { font-size: 16px; }
+.pros-bas b::after { content: ' →'; color: var(--accent); }
+@media (max-width: 600px) { .pros-bas { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
@@ -89,10 +102,15 @@ form .accord input { width: auto; margin-top: 2px; }
     <div class="garages" id="garages"></div>
     <div class="rejoindre"><div><h2>Vous êtes marchand automobile ?</h2>
       <p>Gérez votre stock avec Ocaz et vos véhicules apparaissent ici, sur votre propre vitrine et chez nos apporteurs d'affaires.</p></div>
-      <a class="btn" href="./">Découvrir Ocaz</a></div>
+      <a class="btn" href="rejoindre">Rejoindre le réseau</a></div>
   </section>
 </main>
-<footer id="pied">Site du réseau <a href="./" rel="noopener">Ocaz</a>, mis à jour en direct par les garages. Chaque véhicule est vendu par le garage indiqué sur sa fiche.</footer>
+<section class="pros-bas" aria-label="Professionnels">
+  <a href="./#pro"><span>Vous êtes un pro ?</span><b>Connectez-vous</b></a>
+  <a href="rejoindre"><span>Vous voulez faire partie du réseau ?</span><b>Plus d'informations ici</b></a>
+</section>
+<footer id="pied" class="pied-legal">Site du réseau Ocaz, mis à jour en direct par les garages. Chaque véhicule est vendu par le garage indiqué sur sa fiche.<br>
+<nav aria-label="Informations"><a href="rejoindre">Rejoindre le réseau</a> · <a href="mentions-legales">Mentions légales</a> · <a href="confidentialite">Confidentialité</a> · <a href="cgu">CGU</a> · <a href="mailto:contact@ocaz.re">contact@ocaz.re</a></nav></footer>
 
 <dialog id="dlg"><div class="fiche" id="fiche"></div></dialog>
 
