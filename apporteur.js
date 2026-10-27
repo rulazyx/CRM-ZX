@@ -414,6 +414,9 @@
       b.innerHTML = icon(ic, b.closest('#bottom-tabs') ? 22 : 18) + '<span>' + b.textContent + '</span>';
       b.addEventListener('click', () => afficher(b.dataset.tab));
     });
+    // Paramètres : icône en haut à droite de l'en-tête, comme chez les garages.
+    $('#btn-menu').innerHTML = icon('reglages', 20);
+    $('#btn-menu').addEventListener('click', () => afficher('parametres'));
     $('#i-contrat').innerHTML = Commission.contratHtml();
     document.querySelectorAll('[name="forme"]').forEach(r => r.addEventListener('change', majForme));
     $('#f-inscription').addEventListener('submit', inscrire);
