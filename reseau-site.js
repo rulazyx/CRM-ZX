@@ -1,4 +1,4 @@
-// Site public du réseau Ocaz (ocaz.re/reseau) : les véhicules que chaque marchand partage au réseau, et la liste des garages.
+// Site public du réseau Ocaz (reseau.ocaz.re/reseau) : les véhicules que chaque marchand partage au réseau, et la liste des garages.
 // Lit la copie publique publiée par l'appli de chaque garage (crm_reseau_lire). Une demande de visiteur part
 // au garage qui vend le véhicule (crm_reseau_demande). Aucune connexion, aucune donnée privée.
 (() => {
