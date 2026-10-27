@@ -243,7 +243,7 @@ details.fiche dd { margin: 0; word-break: break-word; }
 .sync-pill.s-ok { color: #86efac; }
 .sync-pill.s-erreur { color: #fca5a5; }
 .sync-pill.s-envoi, .sync-pill.s-connexion { color: #fcd34d; }
-@media (max-width: 420px) { .sync-pill span { display: none; } }
+@media (max-width: 420px), (min-width: 900px) and (max-width: 1440px) { .sync-pill span { display: none; } }
 #dlg-menu h2 { font-size: 17px; }
 
 /* Pas de zoom : double-tap désactivé, et champs en 16 px pour éviter le zoom automatique d'iOS. */
@@ -387,6 +387,34 @@ body.verrouille { overflow: hidden; }
 .auth-carte p { margin: 0; text-align: center; }
 .auth-liens { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px; }
 button.lien { background: none; border: 0; padding: 4px 0; color: var(--primary); font-weight: 600; font-size: 14px; }
+.auth-retour { justify-self: start; margin: -8px 0 -14px; }
+.ap-marque { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; background: var(--accent); color: #0f172a; padding: 2px 8px; border-radius: 99px; }
+/* Accueil d'ocaz.re : Particulier / Revendeur / Apporteur d'affaires */
+.accueil { width: min(760px, 100%); display: grid; gap: 10px; justify-items: center; text-align: center; color: #fff; }
+.accueil[hidden], #auth-form[hidden] { display: none; }
+.accueil img { border-radius: 18px; box-shadow: 0 18px 50px rgba(0, 0, 0, .5); }
+.accueil h1 { margin: 0; font-size: 28px; }
+.accueil-slogan { margin: -4px 0 0; color: #cbd5e1; font-size: 16px; }
+.accueil-question { margin: 14px 0 0; font-weight: 700; font-size: 18px; }
+.accueil-choix { width: 100%; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.accueil-profil { all: unset; box-sizing: border-box; cursor: pointer; display: grid; gap: 6px; justify-items: center; align-content: start;
+  padding: 20px 14px; border-radius: 18px; background: var(--card); color: var(--text); box-shadow: 0 20px 60px rgba(0, 0, 0, .35); transition: transform .15s; }
+.accueil-profil:hover, .accueil-profil:focus-visible { transform: translateY(-3px); outline: 2px solid var(--accent); }
+.accueil-profil b { font-size: 17px; }
+.accueil-profil small { color: var(--muted); font-size: 13.5px; line-height: 1.35; }
+.accueil-ico { width: 52px; height: 52px; border-radius: 14px; display: grid; place-items: center; color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 12%, transparent); }
+.accueil-profil:first-child .accueil-ico { color: #b45309; background: color-mix(in srgb, var(--accent) 22%, transparent); }
+@media (max-width: 600px) {
+  .accueil-choix { grid-template-columns: 1fr; gap: 10px; }
+  .accueil-profil { grid-template-columns: auto 1fr; justify-items: start; text-align: left; column-gap: 14px; row-gap: 2px; padding: 14px; }
+  .accueil-profil .accueil-ico { grid-row: span 2; }
+}
+/* Bascule entre l'espace garage et l'espace apporteur (compte qui a les deux) */
+.espace-bascule { flex: none; padding: 6px 12px; border-radius: 99px; border: 1px solid rgba(255, 255, 255, .3); color: #fff; text-decoration: none;
+  font-size: 13px; font-weight: 600; white-space: nowrap; }
+.espace-bascule:hover { background: rgba(255, 255, 255, .12); }
+.espace-bascule[hidden] { display: none; }
 
 /* Bandeau d'installation */
 #install-banner { position: fixed; left: 12px; right: 12px; bottom: calc(86px + env(safe-area-inset-bottom)); z-index: 50;

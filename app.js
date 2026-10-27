@@ -938,7 +938,25 @@ function chargement(oui) {
   setTimeout(() => s.classList.add('fin'), reste);
 }
 
+// Profil choisi sur l'accueil (revendeur ou apporteur) : ?espace=… dans l'adresse le présélectionne (liens du site du réseau).
+let profilChoisi = ['revendeur', 'apporteur'].find(p => new URLSearchParams(location.search).get('espace') === p) || null;
+if (profilChoisi) Sync.preferer(profilChoisi === 'apporteur' ? 'apporteur' : 'garage');
+function choisirProfil(p) {
+  profilChoisi = p;
+  // Compte à la fois garage et apporteur : l'espace choisi ici est celui qui s'ouvre après la connexion.
+  if (p) Sync.preferer(p === 'apporteur' ? 'apporteur' : 'garage');
+  afficherAuth(Sync.status, Sync.user, Sync.role);
+  if (p) setTimeout(() => $('#auth-email').focus(), 50);
+}
+document.querySelectorAll('.accueil-profil').forEach(b => {
+  b.querySelector('.accueil-ico').innerHTML = icon(b.querySelector('.accueil-ico').dataset.ico, 26);
+  if (b.dataset.profil !== 'particulier') b.addEventListener('click', () => choisirProfil(b.dataset.profil));
+});
+$('#auth-retour').addEventListener('click', () => { erreurAuth(''); choisirProfil(null); });
+$('#btn-espace').addEventListener('click', () => Sync.preferer('apporteur'));
+
 // Écran de connexion : l'appli s'ouvre dessus tant qu'on n'est pas connecté.
+// Sans compte connecté, on commence par l'accueil (Particulier, Revendeur, Apporteur d'affaires).
 function afficherAuth(status, user, role) {
   const gate = $('#auth');
   const config = Sync.configure();
@@ -947,12 +965,23 @@ function afficherAuth(status, user, role) {
   const bloque = !role || nouveau;
   gate.hidden = !bloque || (status === 'connexion' && !!user);
   document.body.classList.toggle('verrouille', bloque);
+  $('#btn-espace').hidden = !role || !Sync.apporteur;
   if (!bloque) return;
+  const accueil = !user && config && !profilChoisi;
+  $('#accueil').hidden = !accueil;
+  $('#auth-form').hidden = accueil;
+  if (accueil) return;
+  const ap = profilChoisi === 'apporteur';
+  $('#auth-retour').hidden = !!user || !config;
+  $('#auth-espace').hidden = !profilChoisi || !!user;
+  $('#auth-espace').textContent = ap ? 'Apporteur' : 'Revendeur';
   const refuse = status === 'refuse';
   $('#auth-texte').textContent = !config ? "L'appli n'est pas encore reliée à sa base : ouvre Réglages techniques ci-dessous."
     : refuse ? `Le compte ${user.email} n'est rattaché à aucun garage. Contacte ton administrateur. (Administrateur : cet email doit figurer dans la liste des super-admins, voir le guide de mise en route.)`
     : status === 'erreur' && user ? 'Connexion à la base impossible. Vérifie le réseau, ou que le script supabase.sql a bien été lancé.'
     : nouveau ? 'Première connexion : choisis ton mot de passe (8 caractères minimum).'
+    : ap ? "Connecte-toi à ton espace apporteur d'affaires."
+    : profilChoisi ? 'Connecte-toi à ton espace garage.'
     : 'Connecte-toi pour accéder à Ocaz.';
   $('#auth-ok').textContent = nouveau ? 'Enregistrer mon mot de passe' : 'Se connecter';
   $('#auth-champ-email').hidden = refuse || nouveau || !config;
@@ -960,7 +989,8 @@ function afficherAuth(status, user, role) {
   $('#auth-champ-mdp2').hidden = !nouveau;
   $('#auth-champ-rester').hidden = refuse || nouveau || !config;
   $('#auth-ok').hidden = refuse || !config;
-  $('#auth-aide').hidden = refuse || nouveau || !config;
+  $('#auth-aide').hidden = refuse || nouveau || !config || ap;
+  $('#auth-devenir').hidden = refuse || nouveau || !config || !ap;
   $('#auth-mdp').autocomplete = nouveau ? 'new-password' : 'current-password';
   $('#auth-mdp').placeholder = nouveau ? 'Nouveau mot de passe' : '';
   $('#auth-sortir').hidden = !user;

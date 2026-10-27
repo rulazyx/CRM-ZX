@@ -8,6 +8,7 @@
 <meta name="theme-color" content="#0f172a">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Ocaz Apporteurs">
+<link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="logo.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-512.png">
 <link rel="stylesheet" href="style.css">
@@ -16,28 +17,19 @@
 </head>
 <body class="ap verrouille">
 <div id="auth">
-  <div class="auth-carte ap-carte">
+  <div class="auth-carte ap-carte large">
     <img src="logo.svg" alt="" width="64" height="64">
     <h1><span class="brand-name">OCAZ</span> Apporteur d'affaires</h1>
-    <p class="muted" id="auth-texte">Présente les véhicules des garages du réseau à tes contacts et touche une commission sur chaque vente conclue.</p>
-    <div class="chips ap-bascule"><button type="button" class="chip active" data-mode="connexion">Se connecter</button>
-      <button type="button" class="chip" data-mode="inscription">Devenir apporteur (gratuit)</button></div>
+    <p class="muted" id="auth-texte">Inscription gratuite. Présente les véhicules des garages du réseau à tes contacts et touche une commission sur chaque vente conclue.</p>
+    <p class="hint auth-aide" data-nouveau-compte>Déjà inscrit ? <a href="./?espace=apporteur">Se connecter</a> (même connexion que les garages).</p>
 
-    <form id="f-connexion" class="stack" novalidate>
-      <div class="field"><label for="c-email">Email</label><input id="c-email" type="text" inputmode="email" autocomplete="username" autocapitalize="none" spellcheck="false"></div>
-      <div class="field"><label for="c-mdp">Mot de passe</label><input id="c-mdp" type="password" autocomplete="current-password"></div>
-      <label class="check auth-rester"><input type="checkbox" id="c-rester" checked><span>Rester connecté sur cet appareil</span></label>
-      <button type="submit" class="primary" id="c-ok">Se connecter</button>
-      <p class="hint auth-aide">Démo : identifiant <b>apporteur</b>, mot de passe <b>test</b>.</p>
-    </form>
-
-    <form id="f-inscription" class="stack" novalidate hidden>
+    <form id="f-inscription" class="stack" novalidate>
       <h3 class="section">1. Toi</h3>
       <div class="grid">
         <div class="field"><label for="i-prenom">Prénom *</label><input id="i-prenom" data-i="prenom" autocomplete="given-name"></div>
         <div class="field"><label for="i-nom">Nom *</label><input id="i-nom" data-i="nom" autocomplete="family-name"></div>
         <div class="field"><label for="i-telephone">Téléphone *</label><input id="i-telephone" data-i="telephone" type="tel" autocomplete="tel"></div>
-        <div class="field"><label for="i-email">Email *</label><input id="i-email" type="email" autocomplete="email" autocapitalize="none"></div>
+        <div class="field" data-nouveau-compte><label for="i-email">Email *</label><input id="i-email" type="email" autocomplete="email" autocapitalize="none"></div>
         <div class="field full"><label for="i-adresse">Adresse</label><input id="i-adresse" data-i="adresse" autocomplete="street-address"></div>
         <div class="field"><label for="i-code_postal">Code postal</label><input id="i-code_postal" data-i="code_postal" inputmode="numeric" autocomplete="postal-code"></div>
         <div class="field"><label for="i-ville">Ville</label><input id="i-ville" data-i="ville" autocomplete="address-level2"></div>
@@ -66,8 +58,8 @@
       <label class="check"><input type="checkbox" id="i-accepte"><span>J'ai lu le contrat d'apporteur d'affaires du réseau Ocaz et je l'accepte.</span></label>
       <label class="check"><input type="checkbox" id="i-certifie"><span>Je certifie l'exactitude de ces informations et je déclarerai moi-même mes commissions (URSSAF, impôts).</span></label>
       <div class="field"><label for="i-signature">Signature : tape ton prénom et ton nom *</label><input id="i-signature" autocomplete="name"></div>
-      <h3 class="section">5. Ton mot de passe</h3>
-      <div class="grid">
+      <h3 class="section" data-nouveau-compte>5. Ton mot de passe</h3>
+      <div class="grid" data-nouveau-compte>
         <div class="field"><label for="i-mdp">Mot de passe (8 caractères min.) *</label><input id="i-mdp" type="password" autocomplete="new-password"></div>
         <div class="field"><label for="i-mdp2">Confirme *</label><input id="i-mdp2" type="password" autocomplete="new-password"></div>
       </div>
@@ -87,6 +79,7 @@
     <button data-tab="reseau">Réseau</button>
     <button data-tab="parametres">Paramètres</button>
   </nav>
+  <a id="btn-espace" class="espace-bascule" href="./" title="Passer à mon espace garage" hidden>⇄ Garage</a>
 </header>
 
 <main>

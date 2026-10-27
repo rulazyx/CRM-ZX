@@ -96,6 +96,7 @@ declare
   e text := lower(auth.jwt() ->> 'email');
   m public.crm_membres%rowtype;
   eid uuid;
+  ap boolean := false;
 begin
   if auth.uid() is null then return null; end if;
   select * into m from public.crm_membres where lower(email) = e;
@@ -104,12 +105,16 @@ begin
       values (coalesce(nullif(trim(auth.jwt() -> 'user_metadata' ->> 'entreprise'), ''), 'Mon garage')) returning id into eid;
     insert into public.crm_membres (email, entreprise_id, role) values (e, eid, 'admin') returning * into m;
   end if;
+  -- Le compte est-il aussi apporteur d'affaires ? (table créée plus bas, dans la partie « Réseau Ocaz »)
+  if to_regclass('public.crm_apporteurs') is not null then
+    execute 'select exists (select 1 from public.crm_apporteurs where email = $1)' into ap using e;
+  end if;
   if m.email is null then
-    -- Apporteur d'affaires du réseau : il utilise son propre espace (apporteur.html).
-    if exists (select 1 from public.crm_apporteurs where email = e) then return json_build_object('apporteur', true); end if;
+    -- Apporteur d'affaires seul : l'appli ouvre son espace (apporteur.html).
+    if ap then return json_build_object('apporteur', true); end if;
     return null;
   end if;
-  return json_build_object('role', m.role, 'entreprise_id', m.entreprise_id, 'doit_changer_mdp', m.doit_changer_mdp,
+  return json_build_object('role', m.role, 'apporteur', ap, 'entreprise_id', m.entreprise_id, 'doit_changer_mdp', m.doit_changer_mdp,
     'superadmin', public.crm_est_superadmin(),
     'nom', (select nom from public.crm_entreprises where id = m.entreprise_id),
     'demo', (select demo from public.crm_entreprises where id = m.entreprise_id));
@@ -447,6 +452,28 @@ begin
   return true;
 end $$;
 grant execute on function public.crm_apporteur_inscription(text, text, jsonb, text, text) to anon, authenticated;
+
+-- Compte existant (un garage par exemple) qui ouvre aussi son espace apporteur : même email, même mot de passe,
+-- contrat signé en ligne. L'appli propose ensuite de passer d'un espace à l'autre.
+create or replace function public.crm_apporteur_activer(p_infos jsonb, p_contrat text, p_signature text)
+returns boolean language plpgsql security definer set search_path = public as $$
+declare e text := lower(auth.jwt() ->> 'email'); c jsonb := public.crm__apporteur_champs(coalesce(p_infos, '{}'::jsonb));
+begin
+  if auth.uid() is null or coalesce(e, '') = '' then raise exception 'Connecte-toi d''abord.'; end if;
+  if exists (select 1 from public.crm_apporteurs where email = e) then return true; end if;
+  if coalesce(c ->> 'nom', '') = '' or coalesce(c ->> 'prenom', '') = '' or coalesce(c ->> 'telephone', '') = '' then raise exception 'Nom, prénom et téléphone sont obligatoires.'; end if;
+  if c ->> 'forme' in ('micro', 'societe') and coalesce(c ->> 'siret', '') !~ '^\d{14}$' then raise exception 'Le SIRET doit faire 14 chiffres.'; end if;
+  if coalesce(trim(p_signature), '') = '' or coalesce(p_contrat, '') = '' then raise exception 'Signe le contrat en tapant ton nom complet.'; end if;
+  insert into public.crm_apporteurs (email, prenom, nom, telephone, adresse, code_postal, ville, forme, raison_sociale, siret, tva,
+    iban, bic, titulaire, contrat_version, contrat_signe_le, signature, demo)
+  values (e, c ->> 'prenom', c ->> 'nom', c ->> 'telephone', coalesce(c ->> 'adresse', ''), coalesce(c ->> 'code_postal', ''), coalesce(c ->> 'ville', ''),
+    coalesce(c ->> 'forme', 'micro'), coalesce(c ->> 'raison_sociale', ''), coalesce(c ->> 'siret', ''), coalesce(c ->> 'tva', ''),
+    coalesce(c ->> 'iban', ''), coalesce(c ->> 'bic', ''), coalesce(c ->> 'titulaire', ''), left(p_contrat, 20), now(), left(trim(p_signature), 120),
+    e like '%@demo.crmzx.re');
+  return true;
+end $$;
+revoke execute on function public.crm_apporteur_activer(jsonb, text, text) from public, anon;
+grant execute on function public.crm_apporteur_activer(jsonb, text, text) to authenticated;
 
 -- Fiche de l'apporteur connecté (null s'il n'en est pas un).
 create or replace function public.crm_apporteur_moi() returns json

@@ -1,5 +1,4 @@
 /* Espace apporteur (apporteur.html) : reprend style.css, avec quelques ajouts. */
-.ap-marque { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; background: var(--accent); color: #0f172a; padding: 2px 8px; border-radius: 99px; }
 .ap-carte { width: min(420px, 100%); }
 .ap-carte.large { width: min(640px, 100%); margin: 20px 0; }
 .ap-carte .section { margin: 10px 0 0; }

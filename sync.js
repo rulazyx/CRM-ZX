@@ -13,6 +13,7 @@ const Sync = (() => {
   let role = null;
   let entreprise = null; // { id, nom, demo }
   let profil = {}; // { superadmin, doit_changer_mdp }
+  let apporteur = false; // le compte a aussi un espace apporteur d'affaires
   let timer = null;
   let enCours = null;
   let onChange = () => {};
@@ -80,8 +81,14 @@ const Sync = (() => {
     setStatus('connexion');
     const { data, error } = await client.rpc('crm_moi');
     if (error) { console.error(error); setStatus('erreur'); return; }
-    // Apporteur d'affaires : il a son propre espace.
-    if (data?.apporteur) { location.replace('apporteur'); return; }
+    // Une seule connexion pour tous : l'espace s'ouvre selon le compte. Apporteur seul → son espace.
+    // Compte garage ET apporteur → l'espace choisi en dernier (accueil ou bouton de bascule).
+    apporteur = !!data?.apporteur;
+    if (data?.role && data.apporteur === undefined) {
+      // Base pas encore à jour (ancienne fonction crm_moi) : on demande directement.
+      try { const r = await client.rpc('crm_apporteur_moi'); apporteur = !r.error && !!r.data; } catch (e) { /* réseau pas installé */ }
+    }
+    if (apporteur && (!data.role || prefere() === 'apporteur')) { location.replace('apporteur'); return; }
     if (!data || !data.role) { role = null; setStatus('refuse'); return; }
     role = data.role;
     entreprise = { id: data.entreprise_id, nom: data.nom, demo: !!data.demo };
@@ -92,6 +99,10 @@ const Sync = (() => {
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'crm_entreprises', filter: 'id=eq.' + entreprise.id }, () => pull())
       .subscribe();
   }
+
+  // Espace préféré d'un compte qui est à la fois garage et apporteur ('garage' ou 'apporteur').
+  const prefere = () => { try { return localStorage.getItem('ocaz-espace') || ''; } catch (e) { return ''; } };
+  const preferer = e => { try { localStorage.setItem('ocaz-espace', e); } catch (err) { /* rien */ } };
 
   // Identifiant sans @ (ex. « test » pour la démo) : compte interne de l'appli.
   const versEmail = id => { const x = (id || '').trim().toLowerCase(); return x.includes('@') ? x : x + '@demo.crmzx.re'; };
@@ -131,7 +142,7 @@ const Sync = (() => {
 
   async function deconnecter() {
     if (client) await client.auth.signOut();
-    user = null; role = null; entreprise = null; profil = {};
+    user = null; role = null; entreprise = null; profil = {}; apporteur = false;
     setStatus('off');
   }
 
@@ -213,7 +224,7 @@ const Sync = (() => {
 
   return {
     init, settings, saveSettings, configure, lienConfig, connecter, nouveauMotDePasse, creerGarage, garages, reinitMdp,
-    deconnecter, changed, pull, membres, ajouterMembre, retirerMembre, renommer,
-    get entreprise() { return entreprise; }, get profil() { return profil; }, get client() { return client; }, get user() { return user; }, get role() { return role; }, get status() { return status; },
+    deconnecter, changed, pull, membres, ajouterMembre, retirerMembre, renommer, preferer,
+    get entreprise() { return entreprise; }, get profil() { return profil; }, get client() { return client; }, get user() { return user; }, get role() { return role; }, get apporteur() { return apporteur; }, get status() { return status; },
   };
 })();

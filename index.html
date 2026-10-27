@@ -20,9 +20,26 @@
   <div class="splash-route"><span></span></div>
 </div>
 <div id="auth" hidden>
-  <form id="auth-form" class="auth-carte" novalidate>
+  <!-- Accueil d'ocaz.re : chacun choisit son profil. Revendeur et apporteur se connectent au même endroit,
+       l'appli ouvre ensuite le bon espace selon le compte. -->
+  <section id="accueil" class="accueil">
     <img src="logo.svg" alt="" width="72" height="72">
     <h1><span class="brand-name">OCAZ</span></h1>
+    <p class="accueil-slogan">Roulez local, achetez pro</p>
+    <p class="accueil-question">Vous êtes :</p>
+    <div class="accueil-choix">
+      <a class="accueil-profil" href="reseau" data-profil="particulier">
+        <span class="accueil-ico" data-ico="vehicules"></span><b>Particulier</b><small>Je cherche une voiture chez les pros de l'île</small></a>
+      <button type="button" class="accueil-profil" data-profil="revendeur">
+        <span class="accueil-ico" data-ico="stock"></span><b>Revendeur</b><small>Je gère mon garage : stock, clients, ventes</small></button>
+      <button type="button" class="accueil-profil" data-profil="apporteur">
+        <span class="accueil-ico" data-ico="leads"></span><b>Apporteur d'affaires</b><small>J'envoie des clients et je touche une commission</small></button>
+    </div>
+  </section>
+  <form id="auth-form" class="auth-carte" novalidate hidden>
+    <button type="button" id="auth-retour" class="lien auth-retour">← Retour</button>
+    <img src="logo.svg" alt="" width="72" height="72">
+    <h1><span class="brand-name">OCAZ</span> <span id="auth-espace" class="ap-marque" hidden></span></h1>
     <p id="auth-texte" class="muted">Connecte-toi pour accéder à Ocaz.</p>
     <div class="field" id="auth-champ-email"><label for="auth-email">Email ou identifiant</label><input id="auth-email" type="text" inputmode="email" autocomplete="username" autocapitalize="none" spellcheck="false" required></div>
     <div class="field" id="auth-champ-mdp"><label for="auth-mdp">Mot de passe</label><input id="auth-mdp" type="password" autocomplete="current-password" required></div>
@@ -31,6 +48,7 @@
     <p id="auth-erreur" class="auth-erreur" role="alert" hidden></p>
     <button type="submit" id="auth-ok" class="primary">Se connecter</button>
     <p class="hint auth-aide" id="auth-aide">Mot de passe oublié ? Demande à ton administrateur de le réinitialiser.</p>
+    <p class="hint auth-aide" id="auth-devenir" hidden>Pas encore apporteur ? <a href="apporteur?inscription">Devenir apporteur (gratuit)</a><br>Démo : identifiant <b>apporteur</b>, mot de passe <b>test</b>.</p>
     <button type="button" id="auth-sortir" class="lien" hidden>Se déconnecter</button>
     <details id="auth-config" hidden><summary>Réglages techniques</summary>
       <div class="stack" style="margin-top:8px">
@@ -56,6 +74,7 @@
     <button data-tab="planning">Planning</button>
     <button data-tab="parametres">Paramètres</button>
   </nav>
+  <a id="btn-espace" class="espace-bascule" href="apporteur" title="Passer à mon espace apporteur d'affaires" hidden>⇄ Apporteur</a>
   <button id="sync-pill" class="sync-pill" hidden></button>
   <button id="btn-menu" class="ghost" title="Paramètres" aria-label="Paramètres"></button>
 </header>
@@ -119,6 +138,7 @@
     <p class="hint">Dans chaque fiche véhicule : case « Partager au réseau » et commission propre au véhicule si besoin.</p>
     <div class="field" style="margin-top:8px"><label for="res-lien">Lien d'inscription à envoyer à tes apporteurs</label>
       <div class="inline"><input id="res-lien" readonly><button type="button" id="btn-res-copier">Copier</button></div></div>
+    <p class="hint">Toi aussi, tu veux envoyer des clients aux autres garages du réseau ? <a href="apporteur?inscription">Ouvre ton espace apporteur</a> avec ce même compte.</p>
     <div class="p-actions"><span class="hint" id="res-etat"></span><span class="spacer"></span>
       <button type="button" id="btn-res-save" class="primary">Enregistrer</button></div>
   </section>
