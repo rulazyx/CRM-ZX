@@ -65,24 +65,21 @@
     $('#auth').hidden = !oui;
     if (texte) $('#auth-texte').textContent = texte;
   }
-  function mode(m) {
-    document.querySelectorAll('.ap-bascule .chip').forEach(b => b.classList.toggle('active', b.dataset.mode === m));
-    $('#f-connexion').hidden = m !== 'connexion';
-    $('#f-inscription').hidden = m !== 'inscription';
-    $('.ap-carte').classList.toggle('large', m === 'inscription');
-    erreur('');
-  }
-
+  // Une seule connexion pour tout Ocaz : la page de connexion est l'accueil (./?espace=apporteur).
+  // Ici on n'arrive que connecté (ou pour s'inscrire) ; un compte garage sans espace apporteur repart vers son garage.
+  const preferer = e => { try { localStorage.setItem('ocaz-espace', e); } catch (err) { /* rien */ } };
+  const versConnexion = () => location.replace('./?espace=apporteur');
+  const inscription = new URLSearchParams(location.search).has('inscription') || location.hash === '#inscription';
   async function demarrer() {
     try {
       const m = await rpc('crm_apporteur_moi');
       if (!m) {
-        verrou(true, `Le compte ${user.email} n'est pas un compte apporteur. Compte garage : ouvre l'appli Ocaz.`);
-        $('#auth-sortir').hidden = false;
-        $('#f-connexion').hidden = true; $('#f-inscription').hidden = true; $('.ap-bascule').hidden = true;
-        $('#auth-texte').insertAdjacentHTML('beforeend', ' <a href="./">Ouvrir Ocaz</a>');
-        return;
+        // Compte garage qui veut aussi devenir apporteur : même compte, il signe juste le contrat.
+        if (inscription) { activation(); return; }
+        preferer('garage'); location.replace('./'); return;
       }
+      // Compte aussi garage : bouton pour passer à l'espace garage.
+      client.rpc('crm_moi').then(({ data }) => { $('#btn-espace').hidden = !data?.role; }, () => {});
       moi = m;
       verrou(false);
       if (moi.statut !== 'actif') toast('Ton compte est suspendu : contacte Ocaz.');
@@ -358,11 +355,18 @@
     await client.auth.signOut();
     moi = null; leads = []; garages = [];
     $('#vue').innerHTML = '';
-    verrou(true);
-    mode('connexion');
+    versConnexion();
   }
 
   // ---------- Inscription ----------
+  // Déjà connecté (compte garage) : pas d'email ni de mot de passe à créer, seulement les infos et le contrat.
+  function activation() {
+    document.querySelectorAll('[data-nouveau-compte]').forEach(el => { el.hidden = true; });
+    $('#auth-texte').textContent = `Ouvre ton espace apporteur avec ton compte ${user.email} : remplis tes infos et signe le contrat.`;
+    $('#i-ok').textContent = 'Signer et ouvrir mon espace apporteur';
+    $('#auth-sortir').hidden = false;
+    verrou(true);
+  }
   function majForme() {
     const f = document.querySelector('[name="forme"]:checked').value;
     $('#i-champ-siret').hidden = f === 'en_cours';
@@ -374,44 +378,34 @@
     const infos = { forme: document.querySelector('[name="forme"]:checked').value };
     document.querySelectorAll('[data-i]').forEach(el => { infos[el.dataset.i] = el.value.trim(); });
     const email = $('#i-email').value.trim().toLowerCase(), mdp = $('#i-mdp').value;
+    const connecte = !!user;
     if (!infos.prenom || !infos.nom || !infos.telephone) { erreur('Prénom, nom et téléphone sont obligatoires.'); return; }
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { erreur('Email invalide.'); return; }
+    if (!connecte && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { erreur('Email invalide.'); return; }
     if (infos.forme !== 'en_cours' && !/^\d{14}$/.test(infos.siret.replace(/\s/g, ''))) { erreur('Le SIRET doit faire 14 chiffres (ou choisis « Immatriculation en cours »).'); return; }
     if (!$('#i-accepte').checked || !$('#i-certifie').checked) { erreur('Coche les deux cases du contrat.'); return; }
     if (!$('#i-signature').value.trim()) { erreur('Signe en tapant ton prénom et ton nom.'); return; }
-    if (mdp.length < 8) { erreur('Le mot de passe doit faire au moins 8 caractères.'); return; }
-    if (mdp !== $('#i-mdp2').value) { erreur('Les deux mots de passe ne sont pas identiques.'); return; }
+    if (!connecte && mdp.length < 8) { erreur('Le mot de passe doit faire au moins 8 caractères.'); return; }
+    if (!connecte && mdp !== $('#i-mdp2').value) { erreur('Les deux mots de passe ne sont pas identiques.'); return; }
     const btn = $('#i-ok');
     btn.disabled = true; btn.textContent = 'Création du compte…';
     erreur('');
     try {
-      await rpc('crm_apporteur_inscription', { p_email: email, p_mdp: mdp, p_infos: infos, p_contrat: Commission.VERSION, p_signature: $('#i-signature').value.trim() });
-      try { localStorage.setItem('crmzx-rester', '1'); } catch (err) { /* rien */ }
-      const { error } = await client.auth.signInWithPassword({ email, password: mdp });
-      if (error) throw new Error(error.message);
-      toast('Bienvenue dans le réseau Ocaz !');
+      const signature = $('#i-signature').value.trim();
       onglet = 'reseau';
+      if (connecte) {
+        await rpc('crm_apporteur_activer', { p_infos: infos, p_contrat: Commission.VERSION, p_signature: signature });
+        preferer('apporteur');
+        await demarrer();
+      } else {
+        await rpc('crm_apporteur_inscription', { p_email: email, p_mdp: mdp, p_infos: infos, p_contrat: Commission.VERSION, p_signature: signature });
+        try { localStorage.setItem('crmzx-rester', '1'); } catch (err) { /* rien */ }
+        const { error } = await client.auth.signInWithPassword({ email, password: mdp });
+        if (error) throw new Error(error.message);
+      }
+      toast('Bienvenue dans le réseau Ocaz !');
     } catch (err) { erreur(err.message); }
     finally { btn.disabled = false; btn.textContent = 'Signer et créer mon compte'; }
   }
-  async function connecter(e) {
-    e.preventDefault();
-    const id = $('#c-email').value.trim().toLowerCase(), mdp = $('#c-mdp').value;
-    if (!id || !mdp) { erreur('Saisis ton email et ton mot de passe.'); return; }
-    const email = id.includes('@') ? id : id + '@demo.crmzx.re';
-    try { localStorage.setItem('crmzx-rester', $('#c-rester').checked ? '1' : '0'); } catch (err) { /* rien */ }
-    const btn = $('#c-ok');
-    btn.disabled = true; btn.textContent = 'Connexion…';
-    erreur('');
-    try {
-      if (!navigator.onLine) throw new Error('Connexion impossible : vérifie ta connexion internet.');
-      const { error } = await client.auth.signInWithPassword({ email, password: mdp });
-      if (error) throw new Error(/invalid login/i.test(error.message) ? 'Email ou mot de passe erroné.' : error.message);
-      $('#c-mdp').value = '';
-    } catch (err) { erreur(err.message); }
-    finally { btn.disabled = false; btn.textContent = 'Se connecter'; }
-  }
-
   // ---------- Démarrage ----------
   function init() {
     document.querySelectorAll('[data-tab]').forEach(b => {
@@ -420,11 +414,10 @@
       b.addEventListener('click', () => afficher(b.dataset.tab));
     });
     $('#i-contrat').innerHTML = Commission.contratHtml();
-    document.querySelectorAll('.ap-bascule .chip').forEach(b => b.addEventListener('click', () => mode(b.dataset.mode)));
     document.querySelectorAll('[name="forme"]').forEach(r => r.addEventListener('change', majForme));
-    $('#f-connexion').addEventListener('submit', connecter);
     $('#f-inscription').addEventListener('submit', inscrire);
-    $('#auth-sortir').addEventListener('click', () => { deconnecter(); location.reload(); });
+    $('#auth-sortir').addEventListener('click', deconnecter);
+    $('#btn-espace').addEventListener('click', () => preferer('garage'));
     $('#f-lead').addEventListener('submit', envoyerLead);
     $('#lead-fermer').addEventListener('click', () => $('#dlg-lead').close());
     $('#lead-annuler').addEventListener('click', () => $('#dlg-lead').close());
@@ -446,7 +439,6 @@
       $('#vue .ap-grille').replaceWith(tmp.querySelector('.ap-grille'));
       $('#vue .ap-tete .muted').textContent = `${vehicules().length} véhicule(s)`;
     });
-    if (new URLSearchParams(location.search).has('inscription')) mode('inscription');
     majForme();
 
     const s = reglages();
@@ -459,7 +451,7 @@
     });
     client.auth.getSession().then(({ data }) => {
       user = data.session?.user || null;
-      if (user) demarrer(); else verrou(true);
+      if (user) demarrer(); else if (inscription) verrou(true); else versConnexion();
     });
   }
   init();

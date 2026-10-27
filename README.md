@@ -14,13 +14,23 @@ Ocaz, le logiciel des petits marchands de véhicules d'occasion (La Réunion), u
   (En cours → Réservé, Livrée → Vendu, Annulée → En stock).
 - Sauvegarde : export / import d'un fichier `.json` (menu ⋯).
 
+## Une seule appli, trois profils
+
+`ocaz.re` s'ouvre sur un accueil « Vous êtes : Particulier, Revendeur, Apporteur d'affaires ».
+- **Particulier** : les véhicules du réseau (`/reseau`), sans compte.
+- **Revendeur** et **Apporteur** : le même écran de connexion ; l'appli ouvre l'espace qui correspond au compte
+  (garage ou apporteur). Déjà connecté : l'accueil est sauté. `./?espace=revendeur` ou `./?espace=apporteur` présélectionne le profil.
+- Un compte qui est à la fois garage et apporteur passe d'un espace à l'autre avec le bouton ⇄ de l'en-tête.
+  Un garage ouvre son espace apporteur depuis Paramètres > Réseau Ocaz (`/apporteur?inscription`, contrat signé, même compte).
+- `/apporteur` reste valable : sans connexion, il renvoie vers la connexion unique ; `/apporteur?inscription` ouvre l'inscription.
+
 ## Réseau Ocaz (apporteurs d'affaires et leads)
 
 - **Garage** : Paramètres > Réseau Ocaz (rejoindre, commission fixe ou en %, partage d'office ou véhicule par véhicule).
   Chaque fiche véhicule a une case « Partager au réseau » et une commission propre si besoin. Onglet **Leads** : clients
   transmis par les apporteurs, prise en charge (fiche client, reprise à étudier, relance), vendu ou clos, commission versée,
   facture de l'apporteur. Le garage verse la commission lui-même : rien ne passe par Ocaz.
-- **Apporteur** (`apporteur.html`, gratuit) : inscription avec statut d'apporteur d'affaires et contrat signé en ligne,
+- **Apporteur** (`apporteur.html`, gratuit, inscription sur `/apporteur?inscription`) : inscription avec statut d'apporteur d'affaires et contrat signé en ligne,
   Suivi leads (en cours, clos, terminés), Données (commissions, ventes, leads en souffrance, taux de transformation),
   Réseau (choisir un véhicule et envoyer un client, avec son accord RGPD et une reprise éventuelle), Paramètres (infos, RIB,
   factures de commission, contrat). Démo : identifiant `apporteur`, mot de passe `test`.

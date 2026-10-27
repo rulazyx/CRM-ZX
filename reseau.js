@@ -19,7 +19,7 @@ const Reseau = (() => {
   const commission = v => Commission.montant(reglages(), v.prixVente, v.commissionReseau);
   const chiffres = s => String(s || '').replace(/\D/g, '');
   const apporteurNom = a => [a?.prenom, a?.nom].filter(Boolean).join(' ') || a?.email || 'apporteur';
-  const lienInscription = () => location.origin + location.pathname.replace(/[^/]*$/, '') + 'apporteur';
+  const lienInscription = () => location.origin + location.pathname.replace(/[^/]*$/, '') + 'apporteur?inscription';
 
   // Copie publiée : infos publiques du garage et véhicules partagés (sans prix d'achat ni données clients).
   function copie() {
