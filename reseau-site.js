@@ -204,6 +204,13 @@
   $('#filtre-garage').addEventListener('click', e => { if (e.target.id === 'sans-garage') { garageFiltre = ''; grille(); } });
   $('#garages').addEventListener('click', e => { const b = e.target.closest('[data-garage]'); if (b) voirGarage(b.dataset.garage); });
   window.addEventListener('hashchange', suivreAdresse);
+  // « Particulier » : directement à la liste des véhicules.
+  $('#profil-particulier').addEventListener('click', e => {
+    e.preventDefault();
+    history.replaceState(null, '', '#vehicules');
+    page('vehicules');
+    $('#page-vehicules').scrollIntoView({ behavior: 'smooth' });
+  });
   $('#dlg').addEventListener('close', () => { if (location.hash.startsWith('#v/')) history.replaceState(null, '', '#vehicules'); });
   $('#dlg').addEventListener('click', e => { if (e.target.id === 'dlg') $('#dlg').close(); });
   demarrer();
