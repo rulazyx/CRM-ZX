@@ -718,3 +718,15 @@ begin
   return true;
 end $$;
 grant execute on function public.crm_reseau_demande(uuid, text, text, text, text, text, text, boolean) to anon, authenticated;
+
+-- Aperçu du site du réseau avec le garage de démonstration (reseau.html?demo=1) : réservé à ce lien,
+-- les visiteurs du site normal ne voient jamais la démo. Mêmes infos que crm_reseau_lire().
+create or replace function public.crm_reseau_demo() returns json
+language sql stable security definer set search_path = public as $$
+  select coalesce(json_agg(json_build_object('entreprise_id', r.entreprise_id, 'garage', r.data -> 'garage',
+      'vehicules', (select coalesce(jsonb_agg(v - 'commission' - 'commissionTexte'), '[]'::jsonb) from jsonb_array_elements(coalesce(r.data -> 'vehicules', '[]'::jsonb)) v),
+      'maj_le', r.maj_le) order by r.maj_le desc), '[]'::json)
+  from public.crm_reseau r join public.crm_entreprises e on e.id = r.entreprise_id
+  where r.actif and e.demo;
+$$;
+grant execute on function public.crm_reseau_demo() to anon, authenticated;
