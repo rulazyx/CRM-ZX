@@ -4,6 +4,60 @@ const Demo = (() => {
   const jour = n => { const d = new Date(); d.setDate(d.getDate() + n); return isoLocal(d); };
   const id = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
+  // Photos d'exemple : une illustration de la voiture dans sa couleur, sur un fond qui change d'un véhicule à l'autre.
+  // (Les vraies photos se prennent depuis le téléphone, dans la fiche du véhicule.)
+  const TEINTES = { Blanc: '#eef0f3', Gris: '#8b929b', Noir: '#25282d', Rouge: '#c62d34', Bleu: '#2f5fb3', Orange: '#e8772e', Vert: '#2f8f5b', Jaune: '#f2c230' };
+  const DECORS = [['#fff2c6', '#f4c26b'], ['#d7ecff', '#8fc1f2'], ['#dff5e3', '#9fd4ad'], ['#ffe0e6', '#f4a7b9'], ['#e6e4f7', '#b3aee6'], ['#f1ece4', '#cdbfa8']];
+  const FORMES = {
+    citadine: { caisse: 'M110 330 L110 292 Q112 264 150 257 L215 249 Q250 206 300 199 L410 197 Q452 199 482 250 L516 262 Q533 270 533 300 L533 330 Z',
+      vitres: ['M230 250 Q258 216 300 211 L350 210 L350 250 Z', 'M362 210 L405 210 Q432 213 458 250 L362 250 Z'], roues: [195, 452], r: 38, y: 332, porte: 356 },
+    suv: { caisse: 'M104 336 L104 282 Q107 252 150 244 L206 238 Q236 184 292 177 L440 175 Q472 177 497 238 L521 248 Q538 256 538 292 L538 336 Z',
+      vitres: ['M222 238 Q248 192 294 188 L362 187 L362 238 Z', 'M374 187 L436 187 Q458 191 478 238 L374 238 Z'], roues: [192, 456], r: 43, y: 336, porte: 368 },
+    utilitaire: { caisse: 'M98 336 L98 272 Q100 246 140 240 L190 232 Q214 170 260 162 L522 160 Q542 162 542 186 L542 336 Z',
+      vitres: ['M204 232 Q228 180 262 175 L322 175 L322 232 Z', 'M334 175 L404 175 L404 232 Z'], roues: [186, 462], r: 41, y: 336, porte: 328 },
+  };
+  function illustration(type, couleur, n) {
+    const f = FORMES[type === 'SUV / 4x4' ? 'suv' : type === 'Utilitaire' ? 'utilitaire' : 'citadine'];
+    const c = TEINTES[couleur] || TEINTES.Gris;
+    const [ciel, sol] = DECORS[n % DECORS.length];
+    const roue = x => `<circle cx="${x}" cy="${f.y}" r="${f.r + 6}" fill="#1b1d21" opacity=".18"/><circle cx="${x}" cy="${f.y}" r="${f.r}" fill="#1b1d21"/>`
+      + `<circle cx="${x}" cy="${f.y}" r="${f.r * .55}" fill="#c9ccd1"/><circle cx="${x}" cy="${f.y}" r="${f.r * .18}" fill="#7d828a"/>`;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480"><defs><linearGradient id="f" x1="0" y1="0" x2="0" y2="1">`
+      + `<stop offset="0" stop-color="${ciel}"/><stop offset="1" stop-color="${sol}"/></linearGradient>`
+      + `<linearGradient id="r" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".35"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/></linearGradient></defs>`
+      + `<rect width="640" height="480" fill="url(#f)"/><rect y="360" width="640" height="120" fill="#000" opacity=".06"/>`
+      + `<ellipse cx="321" cy="${f.y + f.r - 2}" rx="250" ry="16" fill="#000" opacity=".18"/>`
+      + `<path d="${f.caisse}" fill="${c}" stroke="#1b1d21" stroke-opacity=".25" stroke-width="2"/><path d="${f.caisse}" fill="url(#r)"/>`
+      + f.vitres.map(d => `<path d="${d}" fill="#2b3440" opacity=".85"/>`).join('')
+      + `<path d="M${f.porte} ${f.y - 80} L${f.porte} ${f.y - 18}" stroke="#1b1d21" stroke-opacity=".3" stroke-width="2"/>`
+      + `<rect x="${f.porte + 18}" y="${f.y - 66}" width="22" height="5" rx="2" fill="#1b1d21" opacity=".35"/>`
+      + `<rect x="${f.roues[1] + f.r + 20}" y="${f.y - 58}" width="22" height="12" rx="4" fill="#fff6c8"/>`
+      + `<rect x="${f.roues[0] - f.r - 34}" y="${f.y - 56}" width="12" height="12" rx="3" fill="#d43a3a"/>`
+      + f.roues.map(roue).join('') + `</svg>`;
+    return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+  }
+  // Compte démo déjà rempli avant l'ajout des photos d'exemple : on les ajoute aux véhicules qui n'en ont pas.
+  // Elles sont aussi envoyées dans le dossier « photos » du garage démo, pour apparaître sur le site du réseau.
+  let envoiEnCours = false;
+  async function completerPhotos() {
+    db.all('vehicules').forEach((v, i) => { if (!v.image && !(v.photos || []).length) db.upsert('vehicules', { id: v.id, image: illustration(v.type, v.couleur, i) }); });
+    if (envoiEnCours || !Sync.client || !Sync.entreprise?.id) return;
+    envoiEnCours = true;
+    try {
+      for (const v of db.all('vehicules').filter(x => x.statut !== 'Vendu' && x.image?.startsWith('data:image/svg') && !(x.photos || []).length)) {
+        try {
+          const c = await Photos.jpeg(v.image);
+          const blob = c && await new Promise(r => c.toBlob(r, 'image/jpeg', 0.85));
+          if (!blob) continue;
+          const chemin = `${Sync.entreprise.id}/${v.id}/exemple.jpg`;
+          const { error } = await Sync.client.storage.from(Photos.BUCKET).upload(chemin, blob, { contentType: 'image/jpeg', upsert: true });
+          if (!error && db.get('vehicules', v.id)) db.upsert('vehicules', { id: v.id, photos: [chemin] });
+        } catch (e) { /* hors ligne : nouvel essai à la prochaine connexion */ }
+      }
+    } finally { envoiEnCours = false; }
+    render();
+  }
+
   function remplir(remettreAZero) {
     const maintenant = new Date().toISOString();
     if (remettreAZero) {
@@ -64,6 +118,14 @@ const Demo = (() => {
       if (!x.immatriculation) x.immatriculation = `${'FGHJKL'[i % 6]}${'ABCDEF'[(i * 5) % 6]}-${String(100 + i * 37).slice(0, 3)}-RE`;
     });
 
+    // Photos d'exemple et options principales (reprises sur l'offre).
+    vehicules.forEach((x, i) => { x.image = illustration(x.type, x.couleur, i); });
+    const OPTIONS = ['Climatisation automatique, GPS, Caméra de recul, Régulateur de vitesse, Apple CarPlay / Android Auto, Jantes alliage',
+      'Climatisation, Bluetooth, Radar de recul, Vitres électriques, Écran tactile',
+      'Climatisation, GPS, Barres de toit, Radar de recul, Attelage, Vitres arrière surteintées',
+      'Climatisation automatique, Caméra de recul, Sièges chauffants, Aide au maintien de voie, Démarrage sans clé'];
+    vehicules.forEach((x, i) => { if (x.statut !== 'Vendu') x.equipements = OPTIONS[i % OPTIONS.length]; });
+
     let seq = 0;
     const numero = () => 'CMD-' + String(++seq).padStart(4, '0');
     const packs = Param.get().packs.map(k => ({ id: k.id, nom: k.nom, montant: k.montant, coche: !!k.coche }));
@@ -97,6 +159,7 @@ const Demo = (() => {
     clients[3].interets = [vehicules[2].id];
     clients[1].interets = [vehicules[7].id];
 
+    setTimeout(completerPhotos, 1500);
     db.data.clients = clients;
     db.data.vehicules = vehicules;
     db.data.commandes = commandes;
@@ -106,5 +169,5 @@ const Demo = (() => {
       reseau: { ...Param.get().reseau, actif: true, accepteLe: maintenant } });
   }
 
-  return { remplir };
+  return { remplir, completerPhotos, illustration };
 })();

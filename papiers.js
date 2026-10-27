@@ -37,7 +37,7 @@ const Papiers = (() => {
   const lienWhatsapp = (c, msg) => c?.telephone ? `https://wa.me/${telIntl(c.telephone)}?text=${encodeURIComponent(msg ?? messageClient(c))}` : '';
 
   // ---------- Fenêtre imprimable (ou à enregistrer en PDF) ----------
-  function fenetre(titre, corps, style = '') {
+  function fenetre(titre, corps, style = '', opts = {}) {
     const w = window.open('', '_blank');
     if (!w) { toast("Autorise l'ouverture de fenêtres pour imprimer."); return; }
     w.document.write(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>${esc(titre)}</title>
@@ -51,7 +51,7 @@ const Papiers = (() => {
       table{width:100%;border-collapse:collapse;font-size:11.5px}th,td{border:1px solid #c9cbd0;padding:4px 5px;text-align:left;vertical-align:top}
       th{background:#f1f5f9}.manque{color:#dc2626;font-style:italic}
       @media print{.noprint{display:none}body{margin:0 auto}}${style}</style></head><body>
-      ${corps}<p class="noprint"><button onclick="print()">Imprimer / enregistrer en PDF</button></p></body></html>`);
+      ${DocBarre.html(titre, opts)}<div id="doc">${corps}</div></body></html>`);
     w.document.close();
   }
   const caseHtml = (l, v, cls = '') => `<div class="case ${cls}"><b>${esc(l)}</b>${esc(v ?? '') || '&nbsp;'}</div>`;
