@@ -14,6 +14,17 @@ Ocaz, le logiciel des petits marchands de véhicules d'occasion (La Réunion), u
   (En cours → Réservé, Livrée → Vendu, Annulée → En stock).
 - Sauvegarde : export / import d'un fichier `.json` (menu ⋯).
 
+## Réseau Ocaz (apporteurs d'affaires et leads)
+
+- **Garage** : Paramètres > Réseau Ocaz (rejoindre, commission fixe ou en %, partage d'office ou véhicule par véhicule).
+  Chaque fiche véhicule a une case « Partager au réseau » et une commission propre si besoin. Onglet **Leads** : clients
+  transmis par les apporteurs, prise en charge (fiche client, reprise à étudier, relance), vendu ou clos, commission versée,
+  facture de l'apporteur. Le garage verse la commission lui-même : rien ne passe par Ocaz.
+- **Apporteur** (`apporteur.html`, gratuit) : inscription avec statut d'apporteur d'affaires et contrat signé en ligne,
+  Suivi leads (en cours, clos, terminés), Données (commissions, ventes, leads en souffrance, taux de transformation),
+  Réseau (choisir un véhicule et envoyer un client, avec son accord RGPD et une reprise éventuelle), Paramètres (infos, RIB,
+  factures de commission, contrat). Démo : identifiant `apporteur`, mot de passe `test`.
+
 ## Technique
 
 Appli web statique (HTML, CSS, JavaScript, sans build), hébergeable gratuitement sur GitHub Pages.

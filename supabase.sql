@@ -655,8 +655,8 @@ grant execute on function public.crm_apporteur_moi(), public.crm_apporteur_maj(j
 -- Apporteur de démo : identifiant « apporteur », mot de passe « test ». Il ne voit que le garage de démo.
 do $$ begin
   perform public.crm__utilisateur('apporteur@demo.crmzx.re', 'test');
-  insert into public.crm_apporteurs (email, prenom, nom, telephone, ville, forme, siret, iban, bic, titulaire, contrat_version, contrat_signe_le, signature, demo)
-  values ('apporteur@demo.crmzx.re', 'Alex', 'Démo', '0692 00 00 00', 'Saint-Denis', 'micro', '12345678900011', 'FR7630004000031234567890143', 'BNPAFRPPXXX',
+  insert into public.crm_apporteurs (email, prenom, nom, telephone, adresse, code_postal, ville, forme, siret, iban, bic, titulaire, contrat_version, contrat_signe_le, signature, demo)
+  values ('apporteur@demo.crmzx.re', 'Alex', 'Démo', '0692 00 00 00', '1 rue de Paris', '97400', 'Saint-Denis', 'micro', '12345678900011', 'FR7630004000031234567890143', 'BNPAFRPPXXX',
     'Alex Démo', '2026-10', now(), 'Alex Démo', true)
   on conflict (email) do nothing;
 end $$;

@@ -49,6 +49,7 @@
     <button data-tab="donnees" class="active">Données</button>
     <button data-tab="clients">Clients</button>
     <button data-tab="commandes">Commandes</button>
+    <button data-tab="leads">Leads</button>
     <button data-tab="stock">Stock</button>
     <button data-tab="reprises">Reprise</button>
     <button data-tab="planning">Planning</button>
@@ -102,6 +103,23 @@
     <div class="p-actions"><button type="button" id="btn-vit-copier">Copier le lien</button>
       <button type="button" id="vit-notif">Recevoir les alertes sur cet appareil</button><span class="spacer"></span>
       <button type="button" id="btn-vit-save" class="primary">Enregistrer</button></div>
+  </section>
+  <section class="panneau">
+    <h2>Réseau Ocaz</h2>
+    <p class="muted">Des apporteurs d'affaires (inscription gratuite) présentent tes véhicules à leurs contacts et t'envoient des clients prêts à acheter, qui arrivent dans l'onglet Leads. Tes véhicules partagés apparaissent aussi sur le site du réseau. Tu fixes la commission et tu la verses toi-même à l'apporteur, seulement sur les ventes conclues.</p>
+    <label class="check"><input type="checkbox" id="res-actif"><span>Rejoindre le réseau Ocaz et partager mes véhicules</span></label>
+    <p class="hint" id="res-conditions"></p>
+    <div class="grid trois" style="margin-top:6px">
+      <div class="field"><label for="res-type">Commission</label><select id="res-type"><option value="fixe">Montant fixe par vente</option><option value="pourcentage">% du prix de vente</option></select></div>
+      <div class="field"><label for="res-valeur">Montant (€) ou taux (%)</label><input id="res-valeur" type="number" inputmode="decimal"></div>
+      <div class="field" id="res-min-champ"><label for="res-min">Minimum (€)</label><input id="res-min" type="number" inputmode="decimal"></div>
+    </div>
+    <label class="check" style="margin-top:8px"><input type="checkbox" id="res-defaut"><span>Partager d'office chaque véhicule en stock (sinon, coche-les un par un dans leur fiche)</span></label>
+    <p class="hint">Dans chaque fiche véhicule : case « Partager au réseau » et commission propre au véhicule si besoin.</p>
+    <div class="field" style="margin-top:8px"><label for="res-lien">Lien d'inscription à envoyer à tes apporteurs</label>
+      <div class="inline"><input id="res-lien" readonly><button type="button" id="btn-res-copier">Copier</button></div></div>
+    <div class="p-actions"><span class="hint" id="res-etat"></span><span class="spacer"></span>
+      <button type="button" id="btn-res-save" class="primary">Enregistrer</button></div>
   </section>
   <section class="panneau">
     <h2>Documents</h2>
@@ -184,6 +202,9 @@
       <div class="field"><label for="sa-email">Email</label><input id="sa-email" type="email" autocomplete="off"></div></div>
     <div class="p-actions"><span class="spacer"></span><button type="button" id="btn-sa-creer" class="primary">Créer le compte</button></div>
     <div id="sa-liste" class="sa-liste"></div>
+    <h3 class="section">Apporteurs du réseau</h3>
+    <p class="hint">Ils s'inscrivent seuls (gratuit) depuis apporteur.html, avec leur statut et le contrat signé en ligne. Tu peux suspendre un compte.</p>
+    <div id="sa-apporteurs" class="sa-liste"></div>
   </section>
   <section class="panneau" id="equipe" hidden>
     <h2>Équipe</h2>
@@ -247,6 +268,7 @@
   <button data-tab="donnees" class="active">Données</button>
   <button data-tab="clients">Clients</button>
   <button data-tab="commandes">Commandes</button>
+  <button data-tab="leads">Leads</button>
   <button data-tab="stock">Stock</button>
   <button data-tab="reprises">Reprise</button>
   <button data-tab="planning">Planning</button>
@@ -264,6 +286,16 @@
       <button type="submit" class="primary">Enregistrer</button>
     </div>
   </form>
+</dialog>
+
+<dialog id="dlg-lead">
+  <div>
+    <h2 id="lead-titre">Lead</h2>
+    <div id="lead-body"></div>
+    <div class="actions"><span class="spacer"></span>
+      <button type="button" id="lead-annuler">Annuler</button>
+      <button type="button" id="lead-ok" class="primary">OK</button></div>
+  </div>
 </dialog>
 
 <dialog id="dlg-offre" class="plein">
@@ -388,6 +420,8 @@
 <script src="prepa.js"></script>
 <script src="depot.js"></script>
 <script src="enligne.js"></script>
+<script src="commission.js"></script>
+<script src="reseau.js"></script>
 <script src="import.js"></script>
 <script src="donnees.js"></script>
 <script src="demo.js"></script>
