@@ -948,11 +948,14 @@ function choisirProfil(p) {
   afficherAuth(Sync.status, Sync.user, Sync.role);
   if (p) setTimeout(() => $('#auth-email').focus(), 50);
 }
-document.querySelectorAll('.accueil-profil').forEach(b => {
-  b.querySelector('.accueil-ico').innerHTML = icon(b.querySelector('.accueil-ico').dataset.ico, 26);
-  if (b.dataset.profil !== 'particulier') b.addEventListener('click', () => choisirProfil(b.dataset.profil));
-});
-$('#auth-retour').addEventListener('click', () => { erreurAuth(''); choisirProfil(null); });
+$('.accueil-particulier .accueil-ico').innerHTML = icon('vehicules', 30);
+document.querySelectorAll('.accueil-profil').forEach(b => b.addEventListener('click', () => choisirProfil(b.dataset.profil)));
+// « Espace pro » : un seul bouton, qui déplie le choix Revendeur / Apporteur d'affaires.
+const espacePro = oui => { $('#accueil-pro').hidden = oui; $('#accueil-pros').hidden = !oui; if (oui) $('.accueil-profil').focus(); };
+$('#accueil-pro').addEventListener('click', () => espacePro(true));
+$('#accueil-pro-retour').addEventListener('click', () => espacePro(false));
+if (location.hash === '#pro') espacePro(true);
+$('#auth-retour').addEventListener('click', () => { erreurAuth(''); choisirProfil(null); espacePro(true); });
 $('#btn-espace').addEventListener('click', () => Sync.preferer('apporteur'));
 
 // Écran de connexion : l'appli s'ouvre dessus tant qu'on n'est pas connecté.

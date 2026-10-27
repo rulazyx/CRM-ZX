@@ -16,7 +16,8 @@ Ocaz, le logiciel des petits marchands de véhicules d'occasion (La Réunion), u
 
 ## Une seule appli, trois profils
 
-`ocaz.re` s'ouvre sur un accueil « Vous êtes : Particulier, Revendeur, Apporteur d'affaires ».
+`ocaz.re` s'ouvre sur un accueil : « Particulier, je cherche une voiture » au centre, et « Espace pro » en dessous qui déplie Revendeur / Apporteur d'affaires (`./#pro` l'ouvre déplié).
+Couleurs : noirs et gris foncés avec le jaune de l'écran de chargement (jaune = couleur d'action en mode sombre) ; le bleu ne reste que dans les graphiques.
 - **Particulier** : les véhicules du réseau (`/reseau`), sans compte.
 - **Revendeur** et **Apporteur** : le même écran de connexion ; l'appli ouvre l'espace qui correspond au compte
   (garage ou apporteur). Déjà connecté : l'accueil est sauté. `./?espace=revendeur` ou `./?espace=apporteur` présélectionne le profil.

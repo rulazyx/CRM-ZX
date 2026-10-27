@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>OCAZ</title>
-<meta name="theme-color" content="#0f172a">
+<meta name="theme-color" content="#0d0f12">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="OCAZ">
 <link rel="manifest" href="manifest.webmanifest">
@@ -26,14 +26,13 @@
     <img src="logo.svg" alt="" width="72" height="72">
     <h1><span class="brand-name">OCAZ</span></h1>
     <p class="accueil-slogan">Roulez local, achetez pro</p>
-    <p class="accueil-question">Vous êtes :</p>
-    <div class="accueil-choix">
-      <a class="accueil-profil" href="reseau" data-profil="particulier">
-        <span class="accueil-ico" data-ico="vehicules"></span><b>Particulier</b><small>Je cherche une voiture chez les pros de l'île</small></a>
-      <button type="button" class="accueil-profil" data-profil="revendeur">
-        <span class="accueil-ico" data-ico="stock"></span><b>Revendeur</b><small>Je gère mon garage : stock, clients, ventes</small></button>
-      <button type="button" class="accueil-profil" data-profil="apporteur">
-        <span class="accueil-ico" data-ico="leads"></span><b>Apporteur d'affaires</b><small>J'envoie des clients et je touche une commission</small></button>
+    <a class="accueil-particulier" href="reseau">
+      <span class="accueil-ico" data-ico="vehicules"></span><b>Particulier</b><small>Je cherche une voiture</small></a>
+    <button type="button" class="accueil-pro" id="accueil-pro">Espace pro</button>
+    <div class="accueil-pros" id="accueil-pros" hidden>
+      <button type="button" class="accueil-profil" data-profil="revendeur">Revendeur</button>
+      <button type="button" class="accueil-profil" data-profil="apporteur">Apporteur d'affaires</button>
+      <button type="button" class="lien" id="accueil-pro-retour">← Retour</button>
     </div>
   </section>
   <form id="auth-form" class="auth-carte" novalidate hidden>

@@ -41,14 +41,14 @@ const Papiers = (() => {
     const w = window.open('', '_blank');
     if (!w) { toast("Autorise l'ouverture de fenêtres pour imprimer."); return; }
     w.document.write(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>${esc(titre)}</title>
-      <style>body{font:13px/1.45 Inter,Arial,sans-serif;color:#0f172a;max-width:780px;margin:24px auto;padding:0 18px}
-      h1{font-size:19px;margin:0 0 2px}h2{font-size:14px;margin:18px 0 6px;padding:5px 8px;background:#0f172a;color:#fff;border-radius:4px}
-      .muted{color:#64748b;font-size:12px}.cases{display:grid;grid-template-columns:1fr 1fr;gap:6px 18px}
-      .case{border-bottom:1px solid #94a3b8;padding:3px 0;min-height:20px}.case b{display:block;font-size:10.5px;color:#475569;font-weight:600;text-transform:uppercase;letter-spacing:.03em}
+      <style>body{font:13px/1.45 Inter,Arial,sans-serif;color:#0d0f12;max-width:780px;margin:24px auto;padding:0 18px}
+      h1{font-size:19px;margin:0 0 2px}h2{font-size:14px;margin:18px 0 6px;padding:5px 8px;background:#0d0f12;color:#fff;border-radius:4px}
+      .muted{color:#6b6f76;font-size:12px}.cases{display:grid;grid-template-columns:1fr 1fr;gap:6px 18px}
+      .case{border-bottom:1px solid #9a9ea6;padding:3px 0;min-height:20px}.case b{display:block;font-size:10.5px;color:#4b4f56;font-weight:600;text-transform:uppercase;letter-spacing:.03em}
       .plein{grid-column:1/-1}.signatures{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:18px}
-      .signatures div{border:1px solid #94a3b8;border-radius:6px;height:92px;padding:6px;font-size:11px;color:#475569}
+      .signatures div{border:1px solid #9a9ea6;border-radius:6px;height:92px;padding:6px;font-size:11px;color:#4b4f56}
       .exemplaire{page-break-after:always;margin-bottom:28px}.exemplaire:last-child{page-break-after:auto}
-      table{width:100%;border-collapse:collapse;font-size:11.5px}th,td{border:1px solid #cbd5e1;padding:4px 5px;text-align:left;vertical-align:top}
+      table{width:100%;border-collapse:collapse;font-size:11.5px}th,td{border:1px solid #c9cbd0;padding:4px 5px;text-align:left;vertical-align:top}
       th{background:#f1f5f9}.manque{color:#dc2626;font-style:italic}
       @media print{.noprint{display:none}body{margin:0 auto}}${style}</style></head><body>
       ${corps}<p class="noprint"><button onclick="print()">Imprimer / enregistrer en PDF</button></p></body></html>`);

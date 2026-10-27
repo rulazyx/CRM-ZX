@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Ocaz | Roulez local, achetez pro</title>
 <meta name="description" content="Toutes les voitures d'occasion des marchands du réseau Ocaz à La Réunion : photos, prix, et contact direct avec le garage.">
-<meta name="theme-color" content="#0f172a">
+<meta name="theme-color" content="#0d0f12">
 <link rel="icon" href="logo.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -20,18 +20,18 @@ header { padding-bottom: 0; }
 .marque .reseau-mot { font-size: 13px; color: var(--accent); margin-left: -4px; align-self: flex-end; padding-bottom: 6px; }
 .accroche { max-width: 1120px; margin: 14px auto 0; }
 .accroche h1 { margin: 0; font-size: clamp(22px, 4vw, 30px); letter-spacing: -.02em; line-height: 1.2; }
-.accroche p { margin: 6px 0 0; color: #cbd5e1; }
+.accroche p { margin: 6px 0 0; color: #c9cbd0; }
 .profils { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 14px; }
-.profils > span { color: #cbd5e1; font-size: 14px; margin-right: 2px; }
+.profils > span { color: #c9cbd0; font-size: 14px; margin-right: 2px; }
 .profil { display: grid; padding: 8px 14px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, .25); background: rgba(255, 255, 255, .08); text-decoration: none; line-height: 1.25; }
 .profil:hover { background: rgba(255, 255, 255, .16); }
 .profil b { font-size: 14.5px; }
-.profil small { color: #cbd5e1; font-size: 12.5px; }
+.profil small { color: #c9cbd0; font-size: 12.5px; }
 .profil:first-of-type { background: var(--accent); border-color: var(--accent); color: #111; }
 .profil:first-of-type small { color: #3b2a05; }
 @media (max-width: 560px) { .profils > span { width: 100%; } .profil { flex: 1 1 0; text-align: center; padding: 8px 6px; align-self: stretch; align-content: center; } .profil small { display: none; } }
 nav.pages { max-width: 1120px; margin: 16px auto 0; display: flex; gap: 4px; }
-nav.pages a { padding: 11px 18px 13px; border-radius: 12px 12px 0 0; text-decoration: none; font-weight: 600; color: #cbd5e1; }
+nav.pages a { padding: 11px 18px 13px; border-radius: 12px 12px 0 0; text-decoration: none; font-weight: 600; color: #c9cbd0; }
 nav.pages a.actif { background: var(--bg); color: var(--text); }
 .reseau-main .filtres { margin-top: 0; grid-template-columns: minmax(0, 2fr) repeat(5, minmax(0, 1fr)); }
 @media (max-width: 900px) { .reseau-main .filtres { grid-template-columns: 1fr 1fr; } .reseau-main .filtres input { grid-column: 1 / -1; } }
@@ -50,9 +50,9 @@ nav.pages a.actif { background: var(--bg); color: var(--text); }
 .garage-fiche { display: flex; gap: 12px; align-items: center; border: 1px solid var(--line); border-radius: 14px; padding: 12px; }
 .garage-fiche .g-logo { width: 48px; height: 48px; font-size: 17px; }
 .garage-fiche .lien { background: none; border: 0; padding: 0; color: var(--primary); font-weight: 600; cursor: pointer; text-align: left; }
-.rejoindre { margin-top: 22px; background: linear-gradient(120deg, var(--navy), #13224a); color: #fff; border-radius: 18px; padding: 20px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+.rejoindre { margin-top: 22px; background: linear-gradient(120deg, var(--navy), #1d2026); color: #fff; border-radius: 18px; padding: 20px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
 .rejoindre h2 { margin: 0 0 4px; font-size: 19px; }
-.rejoindre p { margin: 0; color: #cbd5e1; }
+.rejoindre p { margin: 0; color: #c9cbd0; }
 .rejoindre .btn { margin-left: auto; background: var(--accent); border-color: var(--accent); color: #111; }
 form .accord { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; color: var(--muted); }
 form .accord input { width: auto; margin-top: 2px; }
@@ -65,8 +65,7 @@ form .accord input { width: auto; margin-top: 2px; }
     <p id="resume">Chargement…</p>
     <div class="profils" role="group" aria-label="Vous êtes"><span>Vous êtes :</span>
       <a class="profil" href="#vehicules" id="profil-particulier"><b>Particulier</b><small>Je cherche une voiture</small></a>
-      <a class="profil" href="./?espace=revendeur"><b>Revendeur</b><small>Mon espace garage</small></a>
-      <a class="profil" href="./?espace=apporteur"><b>Apporteur d'affaires</b><small>Mon espace et mes commissions</small></a></div></div>
+      <a class="profil" href="./#pro"><b>Espace pro</b><small>Revendeur ou apporteur</small></a></div></div>
   <nav class="pages"><a href="#vehicules" data-page="vehicules" class="actif">Véhicules</a><a href="#reseau" data-page="reseau">Notre réseau</a></nav>
 </header>
 <main class="reseau-main">
