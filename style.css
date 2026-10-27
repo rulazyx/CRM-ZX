@@ -634,4 +634,6 @@ body[data-onglet="leads"] .toolbar, body[data-onglet="leads"] #filters, body[dat
 #tabs .pastille { top: -4px; right: -4px; }
 /* 7 onglets en bas sur le téléphone */
 #bottom-tabs button { font-size: 10.5px; }
+.o-nouveau-client .inline { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+.o-nouveau-client button { display: inline-flex; align-items: center; gap: 6px; }
 #bottom-tabs button .ico { width: 40px; padding: 4px 9px; }
