@@ -142,7 +142,7 @@ const Sync = (() => {
     const out = { ...distant, ...local, supprimes, seq: Math.max(num(local.seq), num(distant.seq)) };
     const date = r => r.majLe || r.creeLe || '';
     // Paramètres du garage : la version modifiée en dernier gagne.
-    out.parametres = date(local.parametres || {}) >= date(distant.parametres || {}) ? local.parametres : distant.parametres;
+    out.parametres = date(local.parametres || {}) > date(distant.parametres || {}) ? local.parametres : distant.parametres;
     if (!out.parametres) delete out.parametres;
     TABLES.forEach(t => {
       const m = new Map((distant[t] || []).map(r => [r.id, r]));
@@ -151,8 +151,13 @@ const Sync = (() => {
     });
     return out;
   }
-  const memes = (a, b) => TABLES.every(t => JSON.stringify(a[t] || []) === JSON.stringify(b[t] || []))
-    && JSON.stringify(a.parametres || null) === JSON.stringify(b.parametres || null);
+  // Comparaison indépendante de l'ordre des clés : la base (jsonb) les range autrement que l'appareil.
+  // Sans ça, chaque envoi déclenchait un nouvel envoi (boucle « Synchronisé » ⇄ « Envoi »).
+  const stable = x => Array.isArray(x) ? '[' + x.map(stable).join(',') + ']'
+    : x && typeof x === 'object' ? '{' + Object.keys(x).filter(k => x[k] !== undefined).sort().map(k => JSON.stringify(k) + ':' + stable(x[k])).join(',') + '}'
+    : JSON.stringify(x ?? null);
+  const memes = (a, b) => TABLES.every(t => stable(a[t] || []) === stable(b[t] || []))
+    && stable(a.parametres || null) === stable(b.parametres || null);
 
   // Récupère la version en ligne, la fusionne avec celle de l'appareil, renvoie le résultat si besoin.
   function pull() {
