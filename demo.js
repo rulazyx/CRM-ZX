@@ -102,7 +102,8 @@ const Demo = (() => {
     db.data.commandes = commandes;
     db.data.planning = planning;
     db.data.seq = seq;
-    Param.save({ garage: { ...Param.get().garage, nom: 'Garage Démo', ville: 'Saint-Pierre', telephone: '0262 00 00 00' } });
+    Param.save({ garage: { ...Param.get().garage, nom: 'Garage Démo', ville: 'Saint-Pierre', telephone: '0262 00 00 00' },
+      reseau: { ...Param.get().reseau, actif: true, accepteLe: maintenant } });
   }
 
   return { remplir };

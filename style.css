@@ -585,3 +585,26 @@ a.button.wa-btn { display: inline-flex; align-items: center; gap: 6px; backgroun
 .demandes a.chip { text-decoration: none; color: inherit; }
 .demandes .p-tete a { text-decoration: none; }
 @media (max-width: 640px) { .demandes .demande { grid-template-columns: 1fr; } }
+
+/* Réseau Ocaz : onglet Leads (garage) */
+body[data-onglet="leads"] .toolbar, body[data-onglet="leads"] #filters, body[data-onglet="leads"] #count { display: none; }
+#list .leads-page { grid-column: 1 / -1; display: grid; gap: 10px; min-width: 0; }
+.lead-vues { margin-bottom: 2px; }
+.card.lead { cursor: default; }
+.card.lead .sub { margin-top: 3px; }
+.lead-actions { margin-top: 10px; }
+.lead-actions a.chip { text-decoration: none; color: inherit; border: 1px solid var(--line); background: var(--card); }
+.lead-info p { margin: 4px 0 10px; }
+.sub .neg, .sub.neg { color: var(--danger); }
+.sub.ok { color: var(--green); font-weight: 600; }
+#dlg-lead > div { padding: 20px; width: min(460px, 92vw); }
+.reseau-champ { display: grid; gap: 6px; border: 1px dashed var(--line); border-radius: 10px; padding: 8px 10px; }
+.reseau-champ .inline { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.reseau-champ .inline input { width: 190px; }
+[data-tab] { position: relative; }
+.pastille { position: absolute; top: 0; right: 6px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 99px; background: var(--danger); color: #fff;
+  font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; }
+#tabs .pastille { top: -4px; right: -4px; }
+/* 7 onglets en bas sur le téléphone */
+#bottom-tabs button { font-size: 10.5px; }
+#bottom-tabs button .ico { width: 40px; padding: 4px 9px; }

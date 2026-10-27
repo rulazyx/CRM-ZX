@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ocaz Réseau · apporteurs</title>
+<meta name="description" content="Apporteur d'affaires du réseau Ocaz : présente les véhicules des garages de La Réunion et touche une commission sur chaque vente.">
+<meta name="theme-color" content="#0f172a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Ocaz Réseau">
+<link rel="icon" href="logo.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-512.png">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="apporteur.css">
+</head>
+<body class="ap verrouille">
+<div id="auth">
+  <div class="auth-carte ap-carte">
+    <img src="logo.svg" alt="" width="64" height="64">
+    <h1><span class="brand-name">Ocaz</span> Réseau</h1>
+    <p class="muted" id="auth-texte">Présente les véhicules des garages du réseau à tes contacts et touche une commission sur chaque vente conclue.</p>
+    <div class="chips ap-bascule"><button type="button" class="chip active" data-mode="connexion">Se connecter</button>
+      <button type="button" class="chip" data-mode="inscription">Devenir apporteur (gratuit)</button></div>
+
+    <form id="f-connexion" class="stack" novalidate>
+      <div class="field"><label for="c-email">Email</label><input id="c-email" type="text" inputmode="email" autocomplete="username" autocapitalize="none" spellcheck="false"></div>
+      <div class="field"><label for="c-mdp">Mot de passe</label><input id="c-mdp" type="password" autocomplete="current-password"></div>
+      <label class="check auth-rester"><input type="checkbox" id="c-rester" checked><span>Rester connecté sur cet appareil</span></label>
+      <button type="submit" class="primary" id="c-ok">Se connecter</button>
+      <p class="hint auth-aide">Démo : identifiant <b>apporteur</b>, mot de passe <b>test</b>.</p>
+    </form>
+
+    <form id="f-inscription" class="stack" novalidate hidden>
+      <h3 class="section">1. Toi</h3>
+      <div class="grid">
+        <div class="field"><label for="i-prenom">Prénom *</label><input id="i-prenom" data-i="prenom" autocomplete="given-name"></div>
+        <div class="field"><label for="i-nom">Nom *</label><input id="i-nom" data-i="nom" autocomplete="family-name"></div>
+        <div class="field"><label for="i-telephone">Téléphone *</label><input id="i-telephone" data-i="telephone" type="tel" autocomplete="tel"></div>
+        <div class="field"><label for="i-email">Email *</label><input id="i-email" type="email" autocomplete="email" autocapitalize="none"></div>
+        <div class="field full"><label for="i-adresse">Adresse</label><input id="i-adresse" data-i="adresse" autocomplete="street-address"></div>
+        <div class="field"><label for="i-code_postal">Code postal</label><input id="i-code_postal" data-i="code_postal" inputmode="numeric" autocomplete="postal-code"></div>
+        <div class="field"><label for="i-ville">Ville</label><input id="i-ville" data-i="ville" autocomplete="address-level2"></div>
+      </div>
+      <h3 class="section">2. Ton statut d'apporteur d'affaires</h3>
+      <p class="hint">Pour être payé d'une commission, il faut une immatriculation : la micro-entreprise se crée gratuitement en ligne sur autoentrepreneur.urssaf.fr. Tu peux t'inscrire avant et ajouter ton SIRET ensuite.</p>
+      <div class="ap-formes">
+        <label class="check"><input type="radio" name="forme" value="micro" checked><span><b>Micro-entrepreneur</b><small>TVA non applicable (art. 293 B du CGI)</small></span></label>
+        <label class="check"><input type="radio" name="forme" value="societe"><span><b>Société</b><small>SARL, SAS, EURL…</small></span></label>
+        <label class="check"><input type="radio" name="forme" value="en_cours"><span><b>Immatriculation en cours</b><small>SIRET à ajouter avant ta 1re facture</small></span></label>
+      </div>
+      <div class="grid">
+        <div class="field" id="i-champ-siret"><label for="i-siret">SIRET (14 chiffres) *</label><input id="i-siret" data-i="siret" inputmode="numeric"></div>
+        <div class="field" id="i-champ-rs" hidden><label for="i-raison_sociale">Nom de la société</label><input id="i-raison_sociale" data-i="raison_sociale"></div>
+        <div class="field" id="i-champ-tva" hidden><label for="i-tva">N° de TVA (si assujetti)</label><input id="i-tva" data-i="tva"></div>
+      </div>
+      <h3 class="section">3. Ton RIB <span class="hint">(facultatif maintenant)</span></h3>
+      <p class="hint">Les garages te versent la commission directement par virement. Ton RIB n'est montré qu'au garage d'une vente conclue.</p>
+      <div class="grid">
+        <div class="field full"><label for="i-iban">IBAN</label><input id="i-iban" data-i="iban" autocapitalize="characters" spellcheck="false"></div>
+        <div class="field"><label for="i-bic">BIC</label><input id="i-bic" data-i="bic" autocapitalize="characters" spellcheck="false"></div>
+        <div class="field"><label for="i-titulaire">Titulaire du compte</label><input id="i-titulaire" data-i="titulaire"></div>
+      </div>
+      <h3 class="section">4. Contrat d'apporteur d'affaires</h3>
+      <div class="ap-contrat" id="i-contrat" tabindex="0"></div>
+      <label class="check"><input type="checkbox" id="i-accepte"><span>J'ai lu le contrat d'apporteur d'affaires du réseau Ocaz et je l'accepte.</span></label>
+      <label class="check"><input type="checkbox" id="i-certifie"><span>Je certifie l'exactitude de ces informations et je déclarerai moi-même mes commissions (URSSAF, impôts).</span></label>
+      <div class="field"><label for="i-signature">Signature : tape ton prénom et ton nom *</label><input id="i-signature" autocomplete="name"></div>
+      <h3 class="section">5. Ton mot de passe</h3>
+      <div class="grid">
+        <div class="field"><label for="i-mdp">Mot de passe (8 caractères min.) *</label><input id="i-mdp" type="password" autocomplete="new-password"></div>
+        <div class="field"><label for="i-mdp2">Confirme *</label><input id="i-mdp2" type="password" autocomplete="new-password"></div>
+      </div>
+      <button type="submit" class="primary" id="i-ok">Signer et créer mon compte</button>
+    </form>
+
+    <p id="auth-erreur" class="auth-erreur" role="alert" hidden></p>
+    <button type="button" id="auth-sortir" class="lien" hidden>Se déconnecter</button>
+  </div>
+</div>
+
+<header>
+  <div class="brand"><img src="logo.svg" alt="" width="34" height="34"><span class="brand-name">Ocaz</span><span class="ap-marque">Réseau</span></div>
+  <nav id="tabs">
+    <button data-tab="leads" class="active">Suivi leads</button>
+    <button data-tab="donnees">Données</button>
+    <button data-tab="reseau">Réseau</button>
+    <button data-tab="parametres">Paramètres</button>
+  </nav>
+</header>
+
+<main>
+  <div id="vue"></div>
+</main>
+
+<nav id="bottom-tabs">
+  <button data-tab="leads" class="active">Suivi leads</button>
+  <button data-tab="donnees">Données</button>
+  <button data-tab="reseau">Réseau</button>
+  <button data-tab="parametres">Paramètres</button>
+</nav>
+
+<dialog id="dlg-lead" class="plein">
+  <form id="f-lead" class="o-page" novalidate>
+    <div class="o-tete"><h2>Envoyer un client au garage</h2>
+      <button type="button" id="lead-fermer" class="ghost-dark" aria-label="Fermer">✕</button></div>
+    <div class="o-body" id="lead-body"></div>
+    <div class="actions o-actions"><span class="spacer"></span>
+      <button type="button" id="lead-annuler">Annuler</button>
+      <button type="submit" class="primary" id="lead-envoyer">Envoyer le lead</button></div>
+  </form>
+</dialog>
+
+<div id="toast"></div>
+
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="icons.js"></script>
+<script src="commission.js"></script>
+<script src="apporteur.js"></script>
+</body>
+</html>

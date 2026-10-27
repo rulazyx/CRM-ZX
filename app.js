@@ -90,7 +90,7 @@ const STATUT_VEHICULE = {
 const REPRISE = ['Reprise à étudier', 'Reprise refusée'];
 const DISPONIBLE = ['En préparation', 'En stock'];
 // Origine des clients : sert au tableau de bord (quelles sources font vendre).
-const SOURCES = ['', 'Leboncoin', 'La Centrale', 'Facebook', 'Instagram', 'Site / vitrine', 'Passage au garage', 'Bouche-à-oreille', 'Ancien client', 'Téléphone', 'Autre'];
+const SOURCES = ['', 'Leboncoin', 'La Centrale', 'Facebook', 'Instagram', 'Site / vitrine', 'Apporteur réseau', 'Passage au garage', 'Bouche-à-oreille', 'Ancien client', 'Téléphone', 'Autre'];
 const TYPES = ['', 'Citadine', 'Berline', 'Break', 'SUV / 4x4', 'Monospace', 'Coupé / Cabriolet', 'Utilitaire', 'Pick-up'];
 // Véhicules : deux vues. « Stock » (pas d'ajout direct, on y entre par une reprise validée) et « Reprises ».
 let vueVehicule = 'stock';
@@ -266,6 +266,7 @@ const TABS = {
       { k: 'prixAchat', l: "Prix d'achat final (€)", type: 'number' },
       { k: 'prixVente', l: 'Prix de vente (€)', type: 'number' },
       { k: 'dateEntree', l: "Date d'entrée en stock", type: 'date' },
+      { k: '_reseau', type: 'reseau' },
       { k: '_photos', type: 'photos' },
       { k: '_interesses', type: 'interesses' },
       { k: '_depot', type: 'depot' },
@@ -292,7 +293,7 @@ const TABS = {
         : !reprise && v.prixVente && v.prixAchat ? num(v.prixVente) - num(v.prixAchat) - Prepa.frais(v) : null;
       return `${v.image ? `<div class="thumb"><img src="${esc(v.image)}" alt="" loading="lazy" onerror="this.parentNode.remove()"></div>` : ''}
         <div class="top"><span class="title">${esc(vehiculeNom(v))}</span>
-        <span class="c-badges">${Depot.est(v) ? '<span class="badge b-purple">Dépôt-vente</span>' : ''}<span class="badge ${STATUT_VEHICULE[v.statut] || 'b-grey'}">${esc(v.statut || '')}</span></span></div>
+        <span class="c-badges">${Depot.est(v) ? '<span class="badge b-purple">Dépôt-vente</span>' : ''}${Reseau.actif() && Reseau.partage(v) && ['En stock', 'Réservé'].includes(v.statut) ? '<span class="badge b-blue" title="Partagé au réseau Ocaz">Réseau</span>' : ''}<span class="badge ${STATUT_VEHICULE[v.statut] || 'b-grey'}">${esc(v.statut || '')}</span></span></div>
         <div class="sub">${esc([v.annee, km(v.kilometrage), v.carburant, v.boite, v.type, v.couleur].filter(Boolean).join(' · '))}</div>
         ${(v.photos || []).length ? `<div class="sub">📷 ${v.photos.length} photo(s)</div>` : Photos.deblocable(v) ? '<div class="sub">📷 Photos à prendre</div>' : ''}
         ${v.statut === 'En préparation' ? `<div class="sub">🔧 Préparation ${v.prepa ? Prepa.avancement(v) + ' · frais ' + (euros(Prepa.fraisReels(v)) || '0 €') : 'à commencer'}</div>` : ''}
@@ -420,6 +421,7 @@ const TABS = {
 const ONGLETS = {
   clients: { table: 'clients', icon: 'clients', label: 'Clients', placeholder: 'Nom, téléphone, ville…' },
   commandes: { table: 'commandes', icon: 'commandes', label: 'Commandes', placeholder: 'N°, client, véhicule…' },
+  leads: { table: null, icon: 'leads', label: 'Leads', placeholder: '' },
   stock: { table: 'vehicules', icon: 'stock', label: 'Stock', placeholder: 'Rechercher un modèle, une marque, une plaque…' },
   reprises: { table: 'vehicules', icon: 'reprise', label: 'Reprise', placeholder: 'Modèle, plaque, vendeur…' },
   planning: { table: 'planning', icon: 'planning', label: 'Planning', placeholder: 'Client, véhicule, type…' },
@@ -435,6 +437,7 @@ let editing = null;
 function render() {
   if (onglet === 'donnees') { renderFiltres(); Donnees.rendre(); return; }
   if (onglet === 'parametres') { renderFiltres(); return; }
+  if (onglet === 'leads') { renderFiltres(); Reseau.rendreLeads(); return; }
   const tab = TABS[current];
   const q = norm($('#search').value.trim());
   renderFiltres();
@@ -602,6 +605,7 @@ function fieldHtml(f, row) {
       return cs.length ? `<div class="field full"><label>Clients intéressés</label><span>${esc(cs.map(clientNom).join(', '))}</span></div>` : '';
     }
     case 'papiers': return Papiers.section(row);
+    case 'reseau': return Reseau.champVehicule(row);
     case 'docsVente': return Facture.section(row);
     case 'depot': return Depot.section(row);
     case 'correspond': {
@@ -821,6 +825,7 @@ $('#form').addEventListener('submit', e => {
   fd.forEach((v, k) => { row[k] = typeof v === 'string' ? v.trim() : v; });
   if (editing.table === 'clients') row.interets = fd.getAll('interets');
   TABS[editing.table].fields.filter(f => f.type === 'check').forEach(f => { row[f.k] = fd.has(f.k); });
+  if (editing.table === 'vehicules' && $('#f-reseau')) row.reseau = fd.has('reseau');
   if (editing.table === 'vehicules' && ficheEnCours) row.ficheTechnique = ficheEnCours;
   if (editing.table === 'vehicules' && imageEnCours !== null) row.image = imageEnCours;
   if (row.immatriculation) row.immatriculation = formatPlaque(row.immatriculation);
@@ -878,6 +883,8 @@ function remplirParametres() {
   afficherGarages();
   afficherQr();
   EnLigne.rendreParametres();
+  Reseau.rendreParametres();
+  Reseau.afficherApporteurs();
   majInstall();
   $('#set-usage').textContent = `${Plaque.usageCeMois()} recherche(s) par plaque ce mois-ci sur cet appareil (10 gratuites par mois avec l'offre Basic).`;
 }
@@ -904,16 +911,18 @@ function afficherSync(status, user, role) {
   if (role) etaitConnecte = true;
   if (status === 'ok') {
     // Vitrine en ligne : demandes des visiteurs en direct, et copie publique remise à jour.
-    if (!vitrineDemarree) { vitrineDemarree = true; EnLigne.demarrer(); } else EnLigne.planifier();
+    if (!vitrineDemarree) { vitrineDemarree = true; EnLigne.demarrer(); Reseau.demarrer(); } else { EnLigne.planifier(); Reseau.planifier(); }
     // Nom de l'entreprise donné à la création du compte : repris dans les infos du garage.
     if (Sync.entreprise?.nom && !Param.get().garage.nom) Param.save({ garage: { ...Param.get().garage, nom: Sync.entreprise.nom } });
     // Compte démo vide : on le remplit avec des données d'exemple.
     if (demo && !db.all('vehicules').length) Demo.remplir();
+    // Démo : le garage fait partie du réseau, pour montrer les leads de l'apporteur de démo.
+    if (demo && !Param.get().reseau.accepteLe) Param.save({ reseau: { ...Param.get().reseau, actif: true, accepteLe: new Date().toISOString() } });
     if (onglet === 'donnees') render();
-    if (onglet === 'parametres') { afficherEquipe(); afficherGarages(); }
+    if (onglet === 'parametres') { afficherEquipe(); afficherGarages(); Reseau.afficherApporteurs(); }
   }
   // Déconnexion : les données quittent l'appareil (elles restent en ligne).
-  if (!user && etaitConnecte) { etaitConnecte = false; vitrineDemarree = false; EnLigne.arreter(); db.vider(); switchTab('donnees'); }
+  if (!user && etaitConnecte) { etaitConnecte = false; vitrineDemarree = false; EnLigne.arreter(); Reseau.arreter(); db.vider(); switchTab('donnees'); }
   afficherAuth(status, user, role);
   if (!['connexion', 'envoi'].includes(status)) chargement(false);
 }
@@ -1168,6 +1177,7 @@ $('#filters').addEventListener('input', e => {
 $('#btn-add').addEventListener('click', () => (onglet === 'commandes' ? Offre.ouvrir() : onglet === 'reprises' ? Reprise.ouvrir() : openForm(null)));
 $('#list').addEventListener('click', e => {
   if (e.target.closest('[data-stop]')) return;
+  if (Reseau.clic(e)) return;
   const police = e.target.closest('[data-police]');
   if (police) { Papiers.ouvrirPolice(); return; }
   const sem = e.target.closest('[data-sem]');
@@ -1230,6 +1240,7 @@ Facture.init();
 Prepa.init();
 Depot.init();
 EnLigne.init();
+Reseau.init();
 Import.init();
 let redim = null;
 window.addEventListener('resize', () => { clearTimeout(redim); if (onglet === 'donnees') redim = setTimeout(render, 150); });
