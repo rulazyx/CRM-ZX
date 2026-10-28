@@ -5,21 +5,21 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Ocaz | Voitures d'occasion des pros à La Réunion</title>
 <meta name="description" content="Ocaz, le réseau des garages et marchands VO de La Réunion : trouvez une voiture d'occasion chez un pro de l'île.">
-<link rel="canonical" href="https://ocaz.re/">
+<link rel="canonical" href="https://reseau.ocaz.re/">
 <meta property="og:title" content="Ocaz | Roulez local, achetez pro">
 <meta property="og:description" content="Les voitures d'occasion des garages professionnels de La Réunion.">
-<meta property="og:url" content="https://ocaz.re/">
+<meta property="og:url" content="https://reseau.ocaz.re/">
 <meta property="og:type" content="website">
-<meta property="og:image" content="https://ocaz.re/icon-512.png">
+<meta property="og:image" content="https://reseau.ocaz.re/icon-512.png">
 <meta name="theme-color" content="#0d0f12">
 <link rel="icon" href="logo.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-512.png">
 <script>
-// L'appli des pros a déménagé sur pro.ocaz.re : anciens liens (?espace=…, #pro) et appli installée sur l'écran d'accueil.
+// L'appli des pros a déménagé sur ocaz.re : anciens liens (?espace=…, #pro) et appli installée sur l'écran d'accueil.
 (() => {
   const q = new URLSearchParams(location.search);
   const installee = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
-  if (q.has('espace') || location.hash === '#pro' || installee) location.replace('https://pro.ocaz.re/' + location.search);
+  if (q.has('espace') || location.hash === '#pro' || installee) location.replace('https://ocaz.re/' + location.search);
 })();
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">

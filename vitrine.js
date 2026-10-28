@@ -1,4 +1,4 @@
-// Vitrine publique d'un garage (ocaz.re/vitrine?g=adresse) : lit la copie publiée par l'appli, affiche les véhicules
+// Vitrine publique d'un garage (reseau.ocaz.re/vitrine?g=adresse) : lit la copie publiée par l'appli, affiche les véhicules
 // disponibles et envoie les demandes des visiteurs au garage. Aucune connexion, aucune donnée privée.
 (() => {
   const $ = s => document.querySelector(s);

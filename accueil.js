@@ -1,4 +1,4 @@
-// Accueil ocaz.re : recherche (prix, localisation, plus de filtres) qui compte en direct les véhicules du réseau
+// Accueil reseau.ocaz.re : recherche (prix, localisation, plus de filtres) qui compte en direct les véhicules du réseau
 // et mène à reseau avec les critères, et carrousel des dernières annonces. Lit la même copie publique que reseau.html.
 (() => {
   const $ = s => document.querySelector(s);

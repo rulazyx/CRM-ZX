@@ -2,4 +2,4 @@ User-agent: *
 Allow: /
 Disallow: /apporteur
 
-Sitemap: https://ocaz.re/sitemap.xml
+Sitemap: https://reseau.ocaz.re/sitemap.xml
